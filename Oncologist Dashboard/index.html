@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Oncologist Dashboard — Clinical data overview, patient management, treatment tracking, and analytics.">
+  <title>Oncologist Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════
+       SIDEBAR
+       ════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation" aria-expanded="false">
+    <button class="sidebar__toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+
+    <nav class="sidebar__nav" aria-label="Module navigation">
+      <!-- Dashboard -->
+      <a class="sidebar__link active" data-tab="dashboard" href="#dashboard" aria-current="page">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Dashboard</span>
+      </a>
+
+      <!-- Patient Registry -->
+      <a class="sidebar__link" data-tab="patients" href="#patients">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Patient Registry</span>
+      </a>
+
+      <!-- Treatment Plans -->
+      <a class="sidebar__link" data-tab="treatments" href="#treatments">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="16" x2="13" y2="16"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Treatment Plans</span>
+      </a>
+
+      <!-- Timeline -->
+      <a class="sidebar__link" data-tab="timeline" href="#timeline">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="8" y1="14" x2="16" y2="14"/>
+            <line x1="8" y1="18" x2="12" y2="18"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Timeline</span>
+      </a>
+
+      <!-- Patient Card -->
+      <a class="sidebar__link" data-tab="patient-card" href="#patient-card">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="18" rx="2"/>
+            <circle cx="8" cy="10" r="2.5"/>
+            <path d="M12 17c0-2-1.5-3.5-4-3.5S4 15 4 17"/>
+            <line x1="14" y1="8" x2="20" y2="8"/>
+            <line x1="14" y1="12" x2="20" y2="12"/>
+            <line x1="14" y1="16" x2="18" y2="16"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Patient Card</span>
+      </a>
+
+      <!-- Analytics -->
+      <a class="sidebar__link" data-tab="analytics" href="#analytics">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+            <line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Analytics</span>
+      </a>
+
+      <!-- Settings -->
+      <a class="sidebar__link" data-tab="settings" href="#settings">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <div class="sidebar__footer">
+      <a class="sidebar__link" href="#" onclick="return false;" style="opacity:0.5; pointer-events:none;">
+        <span class="sidebar__link-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </span>
+        <span class="sidebar__link-text">Help &amp; Info</span>
+      </a>
+    </div>
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       HEADER
+       ════════════════════════════════════════════════════════ -->
+  <header class="header" id="header">
+    <h1 class="header__title">Oncologist Dashboard</h1>
+
+    <div class="header__search">
+      <span class="header__search-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </span>
+      <input
+        class="header__search-input"
+        id="global-search"
+        type="search"
+        placeholder="Search patients, treatments, reports…  (⌘K)"
+        aria-label="Global search"
+      >
+    </div>
+
+    <div class="header__actions">
+      <button class="header__btn" id="btn-notifications" aria-label="Notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="badge"></span>
+      </button>
+
+      <button class="header__btn" id="btn-help" aria-label="Help">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </button>
+
+      <div class="header__avatar" id="user-avatar" aria-label="User profile">
+        DR
+      </div>
+    </div>
+  </header>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ════════════════════════════════════════════════════════ -->
+  <main class="main" id="main">
+
+    <!-- ── TAB BAR ──────────────────────────────────────────── -->
+    <nav class="tab-bar" role="tablist" aria-label="Module tabs">
+      <button class="tab-btn active" data-tab="dashboard" role="tab" aria-selected="true" aria-controls="panel-dashboard" id="tab-dashboard">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </span>
+        Dashboard
+      </button>
+
+      <button class="tab-btn" data-tab="patients" role="tab" aria-selected="false" aria-controls="panel-patients" id="tab-patients">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        Patient Registry
+      </button>
+
+      <button class="tab-btn" data-tab="treatments" role="tab" aria-selected="false" aria-controls="panel-treatments" id="tab-treatments">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="16" x2="13" y2="16"/>
+          </svg>
+        </span>
+        Treatment Plans
+      </button>
+
+      <button class="tab-btn" data-tab="timeline" role="tab" aria-selected="false" aria-controls="panel-timeline" id="tab-timeline">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+        Doctor-Patient Timeline
+      </button>
+
+      <button class="tab-btn" data-tab="patient-card" role="tab" aria-selected="false" aria-controls="panel-patient-card" id="tab-patient-card">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="18" rx="2"/>
+            <circle cx="8" cy="10" r="2.5"/>
+            <path d="M12 17c0-2-1.5-3.5-4-3.5S4 15 4 17"/>
+            <line x1="14" y1="8" x2="20" y2="8"/>
+            <line x1="14" y1="12" x2="20" y2="12"/>
+          </svg>
+        </span>
+        Patient Card
+      </button>
+
+      <button class="tab-btn" data-tab="analytics" role="tab" aria-selected="false" aria-controls="panel-analytics" id="tab-analytics">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+            <line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+        </span>
+        Analytics &amp; Reports
+      </button>
+
+      <button class="tab-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="panel-settings" id="tab-settings">
+        <span class="tab-btn__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        Settings
+      </button>
+    </nav>
+
+
+    <!-- ── TAB PANELS ───────────────────────────────────────── -->
+    <div class="tab-panels">
+
+      <!-- ─── 1. DASHBOARD OVERVIEW ─────────────────────────── -->
+      <section class="tab-panel active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" aria-hidden="false">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Dashboard Overview</h2>
+            <p class="panel-header__subtitle">High-level clinical metrics and trends</p>
+          </div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="placeholder-grid placeholder-grid--4 mb-lg">
+          <div class="kpi-card">
+            <div class="kpi-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <span class="kpi-card__label">Total Patients</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Placeholder</span>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <span class="kpi-card__label">Active Treatments</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Placeholder</span>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <span class="kpi-card__label">Pending Results</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Placeholder</span>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <span class="kpi-card__label">Upcoming Appointments</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Placeholder</span>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <h3 class="section-label">Charts &amp; Trends</h3>
+        <div class="placeholder-grid placeholder-grid--2-1 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Patient Distribution by Stage</span>
+            <div class="placeholder-card__zone">Bar / Pie Chart Placeholder</div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Treatment Cost Summary</span>
+            <div class="placeholder-card__zone">Donut / Value Card Placeholder</div>
+          </div>
+        </div>
+
+        <div class="placeholder-grid placeholder-grid--2 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Admissions &amp; Treatment Cost Trend</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Line / Bar Combo Chart Placeholder</div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Recent Activity Feed</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Activity List Placeholder</div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ─── 2. PATIENT REGISTRY ───────────────────────────── -->
+      <section class="tab-panel" id="panel-patients" role="tabpanel" aria-labelledby="tab-patients" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Patient Registry</h2>
+            <p class="panel-header__subtitle">Browse, search, and filter all patients</p>
+          </div>
+          <div class="panel-header__actions">
+            <button class="filter-bar__btn">+ Add Patient</button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+          <input class="filter-bar__input" type="text" placeholder="Search by name, MRN, or diagnosis…" aria-label="Search patients">
+          <select class="filter-bar__select" aria-label="Filter by stage">
+            <option value="">All Stages</option>
+            <option>Stage I</option>
+            <option>Stage II</option>
+            <option>Stage III</option>
+            <option>Stage IV</option>
+          </select>
+          <select class="filter-bar__select" aria-label="Filter by disease">
+            <option value="">All Diseases</option>
+            <option>Breast Cancer</option>
+            <option>Lung Cancer</option>
+            <option>Leukemia</option>
+            <option>Lymphoma</option>
+          </select>
+          <select class="filter-bar__select" aria-label="Filter by doctor">
+            <option value="">All Doctors</option>
+          </select>
+          <button class="filter-bar__btn">Apply Filters</button>
+        </div>
+
+        <!-- Patient Table -->
+        <div class="data-table-wrap">
+          <table class="data-table" id="patient-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Patient Name</th>
+                <th>MRN</th>
+                <th>Age / Sex</th>
+                <th>Disease</th>
+                <th>Current Stage</th>
+                <th>Doctor</th>
+                <th>Treatment</th>
+                <th>Admission Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="badge badge--active">Active</span></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="badge badge--completed">Discharged</span></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="badge badge--scheduled">Scheduled</span></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="badge badge--active">Active</span></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="badge badge--active">Active</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+
+      <!-- ─── 3. TREATMENT PLANS ────────────────────────────── -->
+      <section class="tab-panel" id="panel-treatments" role="tabpanel" aria-labelledby="tab-treatments" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Treatment Plans</h2>
+            <p class="panel-header__subtitle">Active, completed, and scheduled treatment regimens</p>
+          </div>
+          <div class="panel-header__actions">
+            <button class="filter-bar__btn">+ New Treatment Plan</button>
+          </div>
+        </div>
+
+        <!-- Treatment summary cards -->
+        <div class="placeholder-grid placeholder-grid--3 mb-lg">
+          <div class="kpi-card">
+            <span class="kpi-card__label">Active Plans</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Currently ongoing</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Completed Plans</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Finished treatment cycles</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Scheduled Plans</span>
+            <span class="kpi-card__value">—</span>
+            <span class="kpi-card__change">Upcoming start dates</span>
+          </div>
+        </div>
+
+        <!-- Treatment List Table -->
+        <div class="data-table-wrap">
+          <table class="data-table" id="treatment-table">
+            <thead>
+              <tr>
+                <th>Plan ID</th>
+                <th>Patient</th>
+                <th>Treatment Type</th>
+                <th>Protocol</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Cycles</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>—</td>
+                <td>—</td>
+                <td>Chemotherapy</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td><span class="badge badge--active">Active</span></td>
+              </tr>
+              <tr>
+                <td>—</td>
+                <td>—</td>
+                <td>Radiation Therapy</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td><span class="badge badge--completed">Completed</span></td>
+              </tr>
+              <tr>
+                <td>—</td>
+                <td>—</td>
+                <td>Immunotherapy</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td><span class="badge badge--scheduled">Scheduled</span></td>
+              </tr>
+              <tr>
+                <td>—</td>
+                <td>—</td>
+                <td>Stem Cell Transplant</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>— / —</td>
+                <td><span class="badge badge--active">Active</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Treatment detail panel placeholder -->
+        <div class="placeholder-card placeholder-card--dashed mt-lg">
+          <span class="placeholder-card__label">Treatment Detail Panel</span>
+          <div class="placeholder-card__zone">Select a treatment plan above to view dosage schedule, side effects, response tracking, and physician notes</div>
+        </div>
+      </section>
+
+
+      <!-- ─── 4. DOCTOR-PATIENT TIMELINE ────────────────────── -->
+      <section class="tab-panel" id="panel-timeline" role="tabpanel" aria-labelledby="tab-timeline" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Doctor-Patient Timeline</h2>
+            <p class="panel-header__subtitle">Gantt-style treatment timeline across patients</p>
+          </div>
+          <div class="panel-header__actions">
+            <select class="filter-bar__select" aria-label="Time range">
+              <option>Last 30 Days</option>
+              <option>Last 90 Days</option>
+              <option>Last 6 Months</option>
+              <option>Last Year</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="timeline-legend">
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#6b6b6b;"></span>
+            Chemotherapy
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#999;"></span>
+            Radiation Therapy
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#b0b0b0;"></span>
+            Immunotherapy
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#787878;"></span>
+            Stem Cell Transplant
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#a3a3a3;"></span>
+            Phototherapy
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#c4c4c4;"></span>
+            MRI / CT scan
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#5e5e5e;"></span>
+            Surgical Procedure
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#d0d0d0;"></span>
+            Outpatient
+          </div>
+          <div class="timeline-legend__item">
+            <span class="timeline-legend__swatch" style="background:#4a4a4a;"></span>
+            Inpatient
+          </div>
+        </div>
+
+        <!-- Timeline rows -->
+        <div class="timeline-rows">
+          <div class="timeline-row">
+            <span class="timeline-row__label">1. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">2. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">3. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">4. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">5. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">6. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">7. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+          <div class="timeline-row">
+            <span class="timeline-row__label">8. Dr. —  /  Patient —</span>
+            <div class="timeline-row__track"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ─── 5. PATIENT CARD ───────────────────────────────── -->
+      <section class="tab-panel" id="panel-patient-card" role="tabpanel" aria-labelledby="tab-patient-card" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Patient Card</h2>
+            <p class="panel-header__subtitle">Individual patient detail view</p>
+          </div>
+        </div>
+
+        <!-- Patient Header Card -->
+        <div class="patient-header">
+          <div class="patient-header__avatar">?</div>
+          <div class="patient-header__info">
+            <span class="patient-header__name">Select a Patient</span>
+            <span class="patient-header__detail">MRN: —  |  Age: —  |  Sex: —</span>
+            <span class="patient-header__detail">Disease: —  |  Stage: —</span>
+            <span class="patient-header__detail">Doctor: —  |  Specialty: —</span>
+            <span class="patient-header__detail">First Visit: —  |  Last Visit: —</span>
+          </div>
+          <div>
+            <span class="badge badge--active">Active</span>
+          </div>
+        </div>
+
+        <!-- Patient detail sections -->
+        <div class="placeholder-grid placeholder-grid--2 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Diagnosis &amp; Treatment History</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">
+              Chronological list of diagnoses, treatments, and outcomes
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Treatment Cost Breakdown</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">
+              Cost visualization — bar chart by treatment type
+            </div>
+          </div>
+        </div>
+
+        <div class="placeholder-grid placeholder-grid--2 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Visit History &amp; Appointments</span>
+            <div class="placeholder-card__zone">
+              Timeline of past visits and upcoming appointments
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Referring Doctor Network</span>
+            <div class="placeholder-card__zone">
+              Network graph / referral chain placeholder
+            </div>
+          </div>
+        </div>
+
+        <!-- Admissions sub-table -->
+        <h3 class="section-label">Admission Records</h3>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Admit Date</th>
+                <th>Discharge</th>
+                <th>Treatment</th>
+                <th>Risk Level</th>
+                <th>Cost</th>
+                <th>Stage</th>
+                <th>Doctor</th>
+                <th>Specialty</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+              <tr><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+              <tr><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+
+      <!-- ─── 6. ANALYTICS & REPORTS ────────────────────────── -->
+      <section class="tab-panel" id="panel-analytics" role="tabpanel" aria-labelledby="tab-analytics" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Analytics &amp; Reports</h2>
+            <p class="panel-header__subtitle">Population-level insights and exportable reports</p>
+          </div>
+          <div class="panel-header__actions">
+            <select class="filter-bar__select" aria-label="Date range">
+              <option>Last 30 Days</option>
+              <option>Last Quarter</option>
+              <option>Year to Date</option>
+              <option>All Time</option>
+            </select>
+            <button class="filter-bar__btn">Export Report</button>
+          </div>
+        </div>
+
+        <!-- Analytics KPIs -->
+        <div class="placeholder-grid placeholder-grid--4 mb-lg">
+          <div class="kpi-card">
+            <span class="kpi-card__label">Survival Rate</span>
+            <span class="kpi-card__value">— %</span>
+            <span class="kpi-card__change">5-year overall</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Avg Treatment Duration</span>
+            <span class="kpi-card__value">— mo</span>
+            <span class="kpi-card__change">Across all regimens</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Readmission Rate</span>
+            <span class="kpi-card__value">— %</span>
+            <span class="kpi-card__change">Within 30 days</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Total Treatment Cost</span>
+            <span class="kpi-card__value">$—</span>
+            <span class="kpi-card__change">Selected period</span>
+          </div>
+        </div>
+
+        <!-- Chart Grid -->
+        <div class="placeholder-grid placeholder-grid--2 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Treatment Outcomes by Type</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Stacked Bar Chart Placeholder</div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Patient Demographics</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Pie / Donut Chart Placeholder</div>
+          </div>
+        </div>
+
+        <div class="placeholder-grid placeholder-grid--2 mb-lg">
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Monthly Admissions Trend</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Line Chart Placeholder</div>
+          </div>
+          <div class="placeholder-card">
+            <span class="placeholder-card__label">Cost Distribution by Department</span>
+            <div class="placeholder-card__zone placeholder-card__zone--lg">Horizontal Bar Chart Placeholder</div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ─── 7. SETTINGS ──────────────────────────────────── -->
+      <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-header__title">Settings</h2>
+            <p class="panel-header__subtitle">Dashboard configuration and preferences</p>
+          </div>
+        </div>
+
+        <!-- User Profile -->
+        <div class="settings-group">
+          <h3 class="settings-group__title">User Profile</h3>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Display Name</div>
+              <div class="settings-row__desc">Your name as shown across the dashboard</div>
+            </div>
+            <span class="settings-row__control">— Not configured —</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Role / Specialty</div>
+              <div class="settings-row__desc">Medical oncologist, hematologist, etc.</div>
+            </div>
+            <span class="settings-row__control">— Not configured —</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Email</div>
+              <div class="settings-row__desc">Used for notifications and report delivery</div>
+            </div>
+            <span class="settings-row__control">— Not configured —</span>
+          </div>
+        </div>
+
+        <!-- Notification Preferences -->
+        <div class="settings-group">
+          <h3 class="settings-group__title">Notification Preferences</h3>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">New Patient Alerts</div>
+              <div class="settings-row__desc">Notify when a new patient is added to your roster</div>
+            </div>
+            <span class="settings-row__control">Toggle placeholder</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Treatment Milestone Alerts</div>
+              <div class="settings-row__desc">Notify on cycle completions and treatment changes</div>
+            </div>
+            <span class="settings-row__control">Toggle placeholder</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Lab Result Alerts</div>
+              <div class="settings-row__desc">Notify when critical lab results are available</div>
+            </div>
+            <span class="settings-row__control">Toggle placeholder</span>
+          </div>
+        </div>
+
+        <!-- Data Source Configuration -->
+        <div class="settings-group">
+          <h3 class="settings-group__title">Data Source Configuration</h3>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">FHIR Endpoint</div>
+              <div class="settings-row__desc">URL for FHIR-compliant data source (e.g., TectoniQ pipeline)</div>
+            </div>
+            <span class="settings-row__control">— Not configured —</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Refresh Interval</div>
+              <div class="settings-row__desc">How often to poll for updated patient data</div>
+            </div>
+            <span class="settings-row__control">— 5 minutes —</span>
+          </div>
+        </div>
+
+        <!-- Display Preferences -->
+        <div class="settings-group">
+          <h3 class="settings-group__title">Display Preferences</h3>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Theme Color</div>
+              <div class="settings-row__desc">Primary color scheme for the dashboard</div>
+            </div>
+            <span class="settings-row__control">🎨 To be configured</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Font Family</div>
+              <div class="settings-row__desc">Typography used across all modules</div>
+            </div>
+            <span class="settings-row__control">🔤 To be configured</span>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">Dark Mode</div>
+              <div class="settings-row__desc">Switch between light and dark themes</div>
+            </div>
+            <span class="settings-row__control">Toggle placeholder</span>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /.tab-panels -->
+  </main>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       FOOTER
+       ════════════════════════════════════════════════════════ -->
+  <footer class="footer" id="footer">
+    <span>Oncologist Dashboard — Skeleton v0.1</span>
+    <span class="footer__version">⌘1-7 switch tabs · ⌘B toggle sidebar · ⌘K search</span>
+  </footer>
+
+  <!-- JS -->
+  <script src="js/app.js"></script>
+</body>
+</html>
