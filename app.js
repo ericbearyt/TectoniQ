@@ -78,15 +78,19 @@ async function checkBackendHealth() {
     if (res.ok) {
       const data = await res.json();
       statusDot.className = "status-dot online";
+      const statusEl = document.getElementById("backend-status");
+      if (statusEl) statusEl.className = "backend-status";
       statusLabel.textContent = data.gemini_key_configured
-        ? "Backend online · Gemini ✓"
-        : "Backend online · No Gemini key";
+        ? "Live mode"
+        : "Demo mode";
     } else {
       throw new Error("Non-OK response");
     }
   } catch {
     statusDot.className = "status-dot offline";
-    statusLabel.textContent = "Backend offline";
+    const statusEl = document.getElementById("backend-status");
+    if (statusEl) statusEl.className = "backend-status offline";
+    statusLabel.textContent = "Offline";
   }
 }
 
@@ -370,9 +374,17 @@ function updatePatientCard(data) {
   sidebarPatientName.textContent = demo.name;
   sidebarPatientMeta.textContent = `${demo.gender} · DOB ${demo.dob} · ${demo.encounters} encounters`;
   
+  // Set initials avatar dynamically
+  const avatar = document.querySelector(".detail-patient-avatar");
+  if (avatar) {
+    const nameParts = (demo.name || "Unknown Patient").split(" ");
+    const initials = nameParts.map(p => p[0]).join("").substring(0, 2).toUpperCase();
+    avatar.textContent = initials;
+  }
+  
   const detailPatientConditions = document.getElementById("detail-patient-conditions");
   if (detailPatientConditions) {
-    detailPatientConditions.innerHTML = `<span class="tag">${demo.topDiagnosis}</span>`;
+    detailPatientConditions.innerHTML = `<span class="tag" style="text-transform: uppercase;">${demo.topDiagnosis}</span>`;
   }
   
   patientCard.style.display = "flex";
@@ -451,10 +463,8 @@ function renderTimeline(data) {
     const col = document.createElement("div");
     col.className = "timeline-section-col";
 
-    const label = document.createElement("div");
-    label.className = "section-label";
-    label.textContent = section.header;
-    label.title = section.header;
+    const colHeader = document.createElement("div");
+    colHeader.className = "col-header";
 
     // Add section label badge from Worker 6
     if (section.section_label) {
@@ -462,8 +472,16 @@ function renderTimeline(data) {
       badge.className = `section-label-badge ${section.section_group || "other"}`;
       badge.textContent = section.section_label;
       badge.title = `Category: ${section.section_group || "other"}`;
-      col.appendChild(badge);
+      colHeader.appendChild(badge);
     }
+
+    const label = document.createElement("div");
+    label.className = "section-label";
+    label.textContent = section.header;
+    label.title = section.header;
+    colHeader.appendChild(label);
+
+    col.appendChild(colHeader);
 
     const axisDot = document.createElement("div");
     axisDot.className = "section-axis-dot";
@@ -487,11 +505,6 @@ function renderTimeline(data) {
       node.className = `timeline-node ${entry.category || "other"} ${entry.appearance}`;
       node.title = `${entry.term}${dateStr} · ${entry.category} · ${entry.status}`;
 
-      // Assign marker to each term (small colored dot matching the legend)
-      const dot = document.createElement("span");
-      dot.className = `legend-dot ${entry.category || "other"}`;
-      node.appendChild(dot);
-
       // Add text label
       const textSpan = document.createElement("span");
       textSpan.textContent = `${entry.term}${dateStr}${moreStr}`;
@@ -503,7 +516,6 @@ function renderTimeline(data) {
       termsList.appendChild(node);
     });
 
-    col.appendChild(label);
     col.appendChild(axisDot);
     col.appendChild(termsList);
     row.appendChild(col);
@@ -723,275 +735,144 @@ function renderKeywordTree(keywords) {
   const container = document.getElementById("keyword-tree-svg-wrap");
   if (!container) return;
   
-  const width = container.clientWidth || 800;
-  const height = container.clientHeight || 550;
-  
   const data = buildTreeData(keywords);
-  const treeLayout = d3.tree().nodeSize([50, 260]);
-  
   treeRoot = d3.hierarchy(data, d => d.children);
   
-  // Collapse D3 nodes by default. Categories start collapsed (just the pills,
-  // like the intended mindmap view) — expanding a 60-leaf category by default
-  // makes the subtree so tall that d3 centers the root off-screen.
+  // Collapse category nodes by default
   treeRoot.descendants().forEach((d, idx) => {
     d.id = `node-${idx}`;
     if (d.depth === 2) {
-      // All category pills collapsed by default; click to expand leaves.
       d._children = d.children;
       d.children = null;
     } else if (d.depth === 1 && d.data.status === "historical") {
-      // Collapse History status branch
       d._children = d.children;
       d.children = null;
     }
   });
 
-  const svg = d3.select("#keyword-tree-svg-wrap")
-    .html("")
-    .append("svg")
-    .attr("width", "100%")
-    .attr("height", "100%");
+  // Expose helpers
+  window.recenterKeywordTree = () => {};
+  window.focusKeywordNode = () => {};
+  window.triggerTreeUpdate = renderHTMLTree;
 
-  const gLink = svg.append("g").attr("class", "links-group");
-  const gNode = svg.append("g").attr("class", "nodes-group");
-
-  const zoom = d3.zoom()
-    .scaleExtent([0.2, 2.5])
-    .on("zoom", (event) => {
-      gLink.attr("transform", event.transform);
-      gNode.attr("transform", event.transform);
-    });
-
-  svg.call(zoom);
-
-  // Position root left-middle. The root's vertical position (treeRoot.x) is only
-  // known after the layout runs, and it shifts with how much is expanded — so
-  // center on the *actual* root position rather than a fixed offset, else a tall
-  // subtree drags the whole tree off-screen.
-  // Fit the whole (currently-expanded) tree into the panel. Reads the container
-  // size FRESH each call: the tree is first rendered while its panel is hidden
-  // (0-sized), so we must recenter once it's visible — see switchToPanel.
-  function centerView(animate) {
-    treeLayout(treeRoot);
-    const nds = treeRoot.descendants();
-    if (!nds.length) return;
-    let minX = Infinity, maxX = -Infinity, maxDepth = 0;
-    nds.forEach(d => {
-      if (d.x < minX) minX = d.x;
-      if (d.x > maxX) maxX = d.x;
-      if (d.depth > maxDepth) maxDepth = d.depth;
-    });
-    const w = container.clientWidth || 800;
-    const h = container.clientHeight || 550;
-    const treeW = maxDepth * 250 + 240;          // horizontal extent + node width
-    const treeH = (maxX - minX) + 100;           // vertical extent + padding
-    let scale = Math.min(0.9, (w - 80) / treeW, (h - 60) / treeH);
-    scale = Math.max(0.3, Math.min(scale, 1));
-    const tx = 50;
-    const ty = h / 2 - ((minX + maxX) / 2) * scale;
-    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
-    if (animate) {
-      svg.transition().duration(600).call(zoom.transform, transform);
-    } else {
-      svg.call(zoom.transform, transform);
-    }
-  }
-
-  // Focus the view on a node and its visible children at a *readable* scale,
-  // rather than shrinking the whole tree to fit. A big category (e.g. 40 leaves)
-  // expands into a column taller than the viewport; fit-to-all would make every
-  // leaf microscopic. Instead keep a legible scale and center on the subtree so
-  // the keywords fan out readably beside their parent (user pans for the rest).
-  function focusNode(d, animate = true) {
-    treeLayout(treeRoot);
-    const w = container.clientWidth || 800;
-    const h = container.clientHeight || 550;
-    const fam = [d, ...(d.children || [])];
-    let minX = Infinity, maxX = -Infinity;
-    fam.forEach(n => { if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x; });
-    const spanH = (maxX - minX) + 120;
-    let scale = Math.min(1, (h - 80) / spanH);
-    scale = Math.max(0.55, scale);            // never shrink below readable
-    const tx = w * 0.28 - d.y * scale;        // anchor parent ~30% from left
-    const ty = h / 2 - ((minX + maxX) / 2) * scale;
-    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
-    if (animate) svg.transition().duration(500).call(zoom.transform, transform);
-    else svg.call(zoom.transform, transform);
-  }
-  window.focusKeywordNode = focusNode;
-
-  // Expose so panel-switching can recenter once the panel is actually visible.
-  window.recenterKeywordTree = () => centerView(false);
-
-  // Reset zoom listener
-  const btnResetTree = document.getElementById("btn-reset-tree");
-  if (btnResetTree) {
-    btnResetTree.onclick = () => centerView(true);
-  }
-
-  // Define tree updater
-  window.triggerTreeUpdate = updateTree;
-
-  updateTree(treeRoot);   // lays out the tree
-  requestAnimationFrame(() => centerView(false));  // center after layout settles
+  renderHTMLTree();
   showNodeDetails(treeRoot);
 
-  function updateTree(source) {
-    const treeData = treeLayout(treeRoot);
-    const nodes = treeData.descendants();
-    const links = treeData.links();
-
-    nodes.forEach(d => {
-      d.y = d.depth * 250;
-    });
-
-    // ── Links ──
-    const link = gLink.selectAll("path.link")
-      .data(links, d => d.target.id);
-
-    const linkEnter = link.enter().append("path")
-      .attr("class", "link")
-      .attr("d", d => {
-        const o = { x: source.x0 || 0, y: source.y0 || 0 };
-        return linkPath(o, o);
-      });
-
-    const linkUpdate = linkEnter.merge(link);
-    linkUpdate.transition().duration(400)
-      .attr("d", d => linkPath(d.source, d.target));
-
-    link.exit().transition().duration(400)
-      .attr("d", d => {
-        const o = { x: source.x, y: source.y };
-        return linkPath(o, o);
-      })
-      .remove();
-
-    // ── Nodes ──
-    const node = gNode.selectAll("g.node")
-      .data(nodes, d => d.id);
-
-    // Cancel any in-flight transitions before re-driving them. Rapid updates
-    // (e.g. the debounced map search) could otherwise interrupt a node mid-move
-    // and strand it as an orphaned box in the top-left corner.
-    node.interrupt();
-
-    const nodeEnter = node.enter().append("g")
-      .attr("class", "node")
-      .attr("transform", d => `translate(${source.y0 || 0}, ${source.x0 || 0})`)
-      .on("click", (event, d) => {
-        event.stopPropagation();
-        
-        document.querySelectorAll(".tree-node-content").forEach(el => {
-          el.classList.remove("active-node");
-        });
-        
-        const hasToggleableChildren = d.children || d._children;
-        if (hasToggleableChildren) {
-          if (d.children) {
-            d._children = d.children;
-            d.children = null;
-          } else {
-            d.children = d._children;
-            d._children = null;
-          }
-          updateTree(d);
-          // Focus on the toggled node so its keywords stay readable and on-screen
-          // instead of overflowing the viewport (or shrinking to fit-all).
-          focusNode(d, true);
-        }
-
-        showNodeDetails(d);
-        
-        const htmlNode = document.getElementById(`html-node-${d.id}`);
-        if (htmlNode) {
-          htmlNode.classList.add("active-node");
-        }
-      });
-
-    const nodeUpdate = nodeEnter.merge(node);
-    nodeUpdate.transition().duration(400)
-      .attr("transform", d => `translate(${d.y}, ${d.x})`);
-
-    const FO_WIDTH = 210;
-    const FO_HEIGHT = 40;
+  function renderHTMLTree() {
+    container.innerHTML = "";
     
-    const fo = nodeEnter.append("foreignObject")
-      .attr("width", FO_WIDTH)
-      .attr("height", FO_HEIGHT)
-      .attr("x", 0)
-      .attr("y", -FO_HEIGHT / 2);
-
-    fo.append("xhtml:div")
-      .attr("class", "tree-node-html")
-      .html(d => getNodeHTML(d));
-
-    nodeUpdate.select("foreignObject div")
-      .html(d => getNodeHTML(d))
-      .select(".tree-node-content")
-      .classed("active-node", d => activeDetailNode && activeDetailNode.id === d.id);
-
-    // Remove departed nodes immediately. A removal tied to a transition's end
-    // can be skipped if the next update interrupts it, leaving an orphan box.
-    node.exit().remove();
-
-    nodes.forEach(d => {
-      d.x0 = d.x;
-      d.y0 = d.y;
-    });
-  }
-
-  function linkPath(s, d) {
-    const parentWidth = 210;
-    const startX = s.y + parentWidth;
-    const startY = s.x;
-    const endX = d.y;
-    const endY = d.x;
-    return `M ${startX} ${startY}
-            C ${(startX + endX) / 2} ${startY},
-              ${(startX + endX) / 2} ${endY},
-              ${endX} ${endY}`;
-  }
-
-  function getNodeHTML(d) {
-    const hasChildren = d.children || d._children;
-    const isExpanded = d.children != null;
-    let badgeClass = "";
-    let badgeText = "";
-    let countText = "";
-    let expandArrow = "";
-
-    if (d.depth === 0) {
-      badgeClass = "kw";
-      badgeText = "👤";
-      countText = `<span class="node-count">${d.data.count || 0}</span>`;
-    } else if (d.depth === 1) {
-      badgeClass = "sec";
-      badgeText = "SEC";
-      countText = `<span class="node-count">${d.data.count || 0}</span>`;
-      expandArrow = `<span class="node-expand-indicator">${isExpanded ? "▾" : "▸"}</span>`;
-    } else if (d.depth === 2) {
-      badgeClass = "cat";
-      badgeText = "CAT";
-      countText = `<span class="node-count">${d.data.children ? d.data.children.length : (d.data._allChildren ? d.data._allChildren.length : 0)}</span>`;
-      expandArrow = `<span class="node-expand-indicator">${isExpanded ? "▾" : "▸"}</span>`;
-    } else if (d.depth === 3) {
-      badgeClass = "kw";
-      badgeText = "KW";
+    const listContainer = document.createElement("div");
+    listContainer.className = "tree-list-container";
+    
+    function appendNode(d) {
+      const item = document.createElement("div");
+      item.className = "tree-list-item";
+      // Compute indent based on depth
+      item.style.paddingLeft = `${Math.max(12, d.depth * 20)}px`;
+      item.id = `html-node-${d.id}`;
+      
+      if (activeDetailNode && activeDetailNode.id === d.id) {
+        item.classList.add("active-node");
+      }
+      
+      const hasChildren = d.children || d._children;
+      const isExpanded = d.children != null;
+      
+      // Arrow
+      const arrow = document.createElement("span");
+      arrow.className = "tree-item-arrow";
+      if (hasChildren) {
+        arrow.textContent = isExpanded ? "▼" : "▶";
+        arrow.style.cursor = "pointer";
+        arrow.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleNode(d);
+        });
+      } else {
+        arrow.innerHTML = "&bull;";
+        arrow.style.opacity = "0.3";
+        arrow.style.fontSize = "8px";
+      }
+      item.appendChild(arrow);
+      
+      // Badge
+      const badge = document.createElement("span");
+      let badgeText = "";
+      let badgeClass = "";
+      if (d.depth === 0) {
+        badgeText = "PT";
+        badgeClass = "badge-pt";
+      } else if (d.depth === 1) {
+        badgeText = "SCOPE";
+        badgeClass = "badge-scope";
+      } else if (d.depth === 2) {
+        badgeText = "GROUP";
+        badgeClass = "badge-group";
+      } else if (d.depth === 3) {
+        badgeText = "TERM";
+        badgeClass = "badge-term";
+      }
+      badge.className = `tree-item-badge ${badgeClass}`;
+      badge.textContent = badgeText;
+      item.appendChild(badge);
+      
+      // Label name
+      const label = document.createElement("span");
+      label.className = "tree-item-label";
+      let displayName = d.data.name;
+      if (d.depth === 0) {
+        const demo = getPatientDemographics(docData);
+        displayName = demo.name;
+      }
+      label.textContent = displayName;
+      item.appendChild(label);
+      
+      // Count Badge
+      let countVal = 0;
+      if (d.depth === 0) {
+        countVal = d.data.count || 0;
+      } else if (d.depth === 1) {
+        countVal = d.data.count || 0;
+      } else if (d.depth === 2) {
+        countVal = d.data.children ? d.data.children.length : (d.data._allChildren ? d.data._allChildren.length : 0);
+      } else if (d.depth === 3) {
+        countVal = d.data.data.count || 0;
+      }
+      
+      const count = document.createElement("span");
+      count.className = "tree-item-count";
+      count.textContent = countVal;
+      item.appendChild(count);
+      
+      // Selection handler
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".tree-list-item").forEach(el => el.classList.remove("active-node"));
+        item.classList.add("active-node");
+        showNodeDetails(d);
+      });
+      
+      listContainer.appendChild(item);
+      
+      if (isExpanded && d.children) {
+        d.children.forEach(child => {
+          appendNode(child);
+        });
+      }
     }
+    
+    appendNode(treeRoot);
+    container.appendChild(listContainer);
+  }
 
-    const expandedClass = isExpanded ? "node-expanded" : "";
-    const nodeLabel = d.data.name;
-
-    return `
-      <div class="tree-node-content ${expandedClass}" id="html-node-${d.id}">
-        <span class="node-badge ${badgeClass}">${badgeText}</span>
-        <span class="node-label" title="${nodeLabel}">${nodeLabel}</span>
-        ${countText}
-        ${expandArrow}
-      </div>
-    `;
+  function toggleNode(d) {
+    if (d.children) {
+      d._children = d.children;
+      d.children = null;
+    } else {
+      d.children = d._children;
+      d._children = null;
+    }
+    renderHTMLTree();
   }
 }
 
@@ -1145,10 +1026,19 @@ function showNodeDetails(node) {
     
     const snippetHtml = getSnippetHTML(term, kwData.first_seen?.section_id);
     const correlations = getCorrelations(term);
+
+    const typeMap = {
+      "diagnosis": "DIAGNOSIS",
+      "medication": "MEDICATION",
+      "procedure": "PROCEDURE",
+      "biomarker": "BIOMARKER",
+      "other": "OTHER"
+    };
+    const categoryUpper = typeMap[kwData.category] || categoryLabel.toUpperCase().replace(/S$/, "");
     
     container.innerHTML = `
       <h3 class="detail-node-name">${term}</h3>
-      <div class="detail-node-type" style="color: var(--c-${kwData.category});">${categoryLabel.substring(0, categoryLabel.length - 1)}</div>
+      <div class="detail-node-type" style="color: var(--c-${kwData.category}); font-size: 11px; font-weight: 700; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.05em;">${categoryUpper}</div>
       
       <div class="detail-section-title">Clinical History Instance</div>
       <div class="instances-grid">
@@ -1206,7 +1096,7 @@ window.selectKeywordNode = function(nodeId, skipHistory) {
   const match = findInTree(treeRoot, d => d.id === nodeId);
   if (skipHistory) kwNavSkipPush = true;
   if (match) {
-    document.querySelectorAll(".tree-node-content").forEach(el => {
+    document.querySelectorAll(".tree-list-item").forEach(el => {
       el.classList.remove("active-node");
     });
     
@@ -1219,39 +1109,26 @@ window.selectKeywordNode = function(nodeId, skipHistory) {
       parent = parent.parent;
     }
     
-    if (window.triggerTreeUpdate) {
-      window.triggerTreeUpdate(treeRoot);
-    }
-    
+    renderKeywordTree(docData.keywords); // Redraw HTML tree list
     showNodeDetails(match);
     
     setTimeout(() => {
       const el = document.getElementById(`html-node-${match.id}`);
-      if (el) el.classList.add("active-node");
-      scrollNodeIntoView(match);
-    }, 200);
+      if (el) {
+        el.classList.add("active-node");
+        scrollNodeIntoView(match);
+      }
+    }, 100);
   }
   kwNavSkipPush = false;
 };
 
 // Scroll SVG tree view to match selected node
 function scrollNodeIntoView(d) {
-  const container = document.getElementById("keyword-tree-svg-wrap");
-  const svg = d3.select("#keyword-tree-svg-wrap svg");
-  if (!container || svg.empty()) return;
-  
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  
-  const zoomBehavior = d3.zoom().on("zoom", (event) => {
-    svg.select(".links-group").attr("transform", event.transform);
-    svg.select(".nodes-group").attr("transform", event.transform);
-  });
-  
-  svg.transition().duration(750).call(
-    zoomBehavior.transform,
-    d3.zoomIdentity.translate(width / 3 - d.y * 0.85, height / 2 - d.x * 0.85).scale(0.85)
-  );
+  const el = document.getElementById(`html-node-${d.id}`);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 // Global hook to follow correlations
@@ -1874,24 +1751,42 @@ function renderHistory(items) {
   historyGrid.innerHTML = "";
 
   items.forEach((item, idx) => {
-    const dateStr = item.processed_at 
-      ? new Date(item.processed_at).toLocaleString() 
-      : "Unknown date";
+    let dateStr = "Unknown date";
+    if (item.processed_at) {
+      const pDate = new Date(item.processed_at);
+      const now = new Date();
+      const diffMs = now - pDate;
+      const diffDays = Math.floor(diffMs / 86400000);
+      const timeStr = pDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (diffDays === 0 && pDate.getDate() === now.getDate()) {
+        dateStr = `Today · ${timeStr}`;
+      } else if (diffDays <= 1 && pDate.getDate() === new Date(now - 86400000).getDate()) {
+        dateStr = `Yesterday · ${timeStr}`;
+      } else {
+        const monthStr = pDate.toLocaleDateString([], { month: 'short' });
+        const dayVal = pDate.getDate();
+        dateStr = `${monthStr} ${dayVal} · ${timeStr}`;
+      }
+    }
+
+    const nameParts = (item.patient_name || "Unknown Patient").split(" ");
+    const initials = nameParts.map(p => p[0]).join("").substring(0, 2).toUpperCase();
+    const avatarClass = idx === 0 ? "avatar-red" : "avatar-pink";
       
     const card = document.createElement("div");
     card.className = "history-card";
     card.style.animationDelay = `${idx * 20}ms`;
     card.innerHTML = `
       <div class="history-card-header">
-        <span class="history-patient-icon">👤</span>
+        <div class="history-patient-avatar ${avatarClass}">${initials}</div>
         <div class="history-patient-name" title="${item.patient_name}">${item.patient_name}</div>
       </div>
       <div class="history-card-meta">
         <div>Processed: ${dateStr}</div>
         <div class="history-stats">
-          <span>📄 ${item.meta?.page_count || 0} pages</span>
-          <span>◈ ${item.meta?.section_count || 0} sections</span>
-          <span>◉ ${item.meta?.unique_terms || 0} keywords</span>
+          <span>${item.meta?.page_count || 0} pages</span>
+          <span>${item.meta?.section_count || 0} sections</span>
+          <span>${item.meta?.unique_terms || 0} keywords</span>
         </div>
       </div>
       <button class="btn btn-ghost history-load-btn" data-id="${item.patient_id}">
