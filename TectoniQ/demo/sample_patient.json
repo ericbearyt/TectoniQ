@@ -1,0 +1,982 @@
+{
+  "meta": {
+    "page_count": 8,
+    "section_count": 7,
+    "unique_terms": 12,
+    "ner_summary": {
+      "total_terms": 12,
+      "reviewed_terms": 10,
+      "categories": {
+        "diagnosis": 4,
+        "medication": 3,
+        "procedure": 2,
+        "biomarker": 1
+      },
+      "gemini_available": false
+    }
+  },
+  "sections": [
+    {
+      "id": "s0",
+      "header": "CHIEF COMPLAINT",
+      "page": 1,
+      "content": "Patient presents with persistent fatigue, shortness of breath, and bilateral lower extremity edema for the past 3 weeks.",
+      "duplicate_of": null,
+      "keywords": [
+        "fatigue",
+        "edema",
+        "shortness"
+      ]
+    },
+    {
+      "id": "s1",
+      "header": "PAST MEDICAL HISTORY",
+      "page": 2,
+      "content": "History of hypertension diagnosed in 2018. Prior myocardial infarction in 2021. Former smoker, resolved 2019. Type 2 diabetes mellitus.",
+      "duplicate_of": null,
+      "keywords": [
+        "hypertension",
+        "myocardial infarction",
+        "diabetes mellitus",
+        "smoking"
+      ]
+    },
+    {
+      "id": "s2",
+      "header": "MEDICATIONS",
+      "page": 3,
+      "content": "Current medications include Metformin 500mg twice daily, Lisinopril 10mg daily, Atorvastatin 40mg nightly, and Aspirin 81mg daily.",
+      "duplicate_of": null,
+      "keywords": [
+        "metformin",
+        "lisinopril",
+        "atorvastatin",
+        "aspirin"
+      ]
+    },
+    {
+      "id": "s3",
+      "header": "ASSESSMENT",
+      "page": 4,
+      "content": "Active heart failure exacerbation likely secondary to medication non-compliance. Hypertension poorly controlled. Diabetes mellitus stable. Atrial fibrillation, new onset.",
+      "duplicate_of": null,
+      "keywords": [
+        "heart failure",
+        "hypertension",
+        "diabetes mellitus",
+        "atrial fibrillation"
+      ]
+    },
+    {
+      "id": "s4",
+      "header": "PLAN",
+      "page": 5,
+      "content": "Initiate Furosemide 40mg IV twice daily. Cardiology consult for atrial fibrillation. Repeat echocardiogram. Strict sodium restriction. Adjust Lisinopril to 20mg daily.",
+      "duplicate_of": null,
+      "keywords": [
+        "furosemide",
+        "cardiology",
+        "echocardiogram",
+        "lisinopril"
+      ]
+    },
+    {
+      "id": "s5",
+      "header": "LABS",
+      "page": 6,
+      "content": "BNP 980 pg/mL (elevated). HbA1c 7.4%. Serum creatinine 1.3 mg/dL. Potassium 3.8 mEq/L. Hemoglobin 11.2 g/dL.",
+      "duplicate_of": null,
+      "keywords": [
+        "bnp",
+        "hba1c",
+        "creatinine",
+        "potassium",
+        "hemoglobin"
+      ]
+    },
+    {
+      "id": "s6",
+      "header": "ASSESSMENT",
+      "page": 7,
+      "content": "Reassessment 48 hours post-admission. Improved respiratory status. Hypertension now controlled. Heart failure symptoms improving with diuresis.",
+      "duplicate_of": "s3",
+      "keywords": [
+        "hypertension",
+        "heart failure",
+        "diuresis"
+      ]
+    }
+  ],
+  "keywords": {
+    "hypertension": {
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 4,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2018"
+        ]
+      },
+      "last_seen": {
+        "section_id": "s6",
+        "section_header": "ASSESSMENT",
+        "page": 7,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": [
+            "Jan 2018"
+          ]
+        },
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s6",
+          "section_header": "ASSESSMENT",
+          "page": 7,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 5,
+      "sections_present": [
+        "s1",
+        "s3",
+        "s6"
+      ],
+      "dates": [
+        "Jan 2018"
+      ]
+    },
+    "heart failure": {
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 3,
+      "first_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s6",
+        "section_header": "ASSESSMENT",
+        "page": 7,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s6",
+          "section_header": "ASSESSMENT",
+          "page": 7,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 3,
+      "sections_present": [
+        "s3",
+        "s6"
+      ],
+      "dates": []
+    },
+    "diabetes mellitus": {
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 3,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": []
+        },
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 2,
+      "sections_present": [
+        "s1",
+        "s3"
+      ],
+      "dates": []
+    },
+    "atrial fibrillation": {
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 2,
+      "first_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 1,
+      "sections_present": [
+        "s3",
+        "s4"
+      ],
+      "dates": []
+    },
+    "lisinopril": {
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 2,
+      "first_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s2",
+          "section_header": "MEDICATIONS",
+          "page": 3,
+          "dates": []
+        },
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 2,
+      "sections_present": [
+        "s2",
+        "s4"
+      ],
+      "dates": []
+    },
+    "metformin": {
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s2",
+          "section_header": "MEDICATIONS",
+          "page": 3,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s2"
+      ],
+      "dates": []
+    },
+    "furosemide": {
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s4"
+      ],
+      "dates": []
+    },
+    "echocardiogram": {
+      "category": "procedure",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s4"
+      ],
+      "dates": []
+    },
+    "myocardial infarction": {
+      "category": "procedure",
+      "status": "historical",
+      "ner_confidence": "high",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2021"
+        ]
+      },
+      "last_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2021"
+        ]
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": [
+            "Jan 2021"
+          ]
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s1"
+      ],
+      "dates": [
+        "Jan 2021"
+      ]
+    },
+    "bnp": {
+      "category": "biomarker",
+      "status": "active",
+      "ner_confidence": "high",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s5",
+        "section_header": "LABS",
+        "page": 6,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s5",
+        "section_header": "LABS",
+        "page": 6,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s5",
+          "section_header": "LABS",
+          "page": 6,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s5"
+      ],
+      "dates": []
+    },
+    "edema": {
+      "category": "other",
+      "status": "active",
+      "ner_confidence": "low",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s0",
+          "section_header": "CHIEF COMPLAINT",
+          "page": 1,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s0"
+      ],
+      "dates": []
+    },
+    "fatigue": {
+      "category": "other",
+      "status": "active",
+      "ner_confidence": "low",
+      "count": 1,
+      "first_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s0",
+          "section_header": "CHIEF COMPLAINT",
+          "page": 1,
+          "dates": []
+        }
+      ],
+      "recurrence_gap": 0,
+      "sections_present": [
+        "s0"
+      ],
+      "dates": []
+    }
+  },
+  "timeline": [
+    {
+      "term": "fatigue",
+      "count": 1,
+      "category": "other",
+      "status": "active",
+      "ner_confidence": "low",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s0",
+          "section_header": "CHIEF COMPLAINT",
+          "page": 1,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s0"
+      ],
+      "dates": []
+    },
+    {
+      "term": "edema",
+      "count": 1,
+      "category": "other",
+      "status": "active",
+      "ner_confidence": "low",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s0",
+        "section_header": "CHIEF COMPLAINT",
+        "page": 1,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s0",
+          "section_header": "CHIEF COMPLAINT",
+          "page": 1,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s0"
+      ],
+      "dates": []
+    },
+    {
+      "term": "hypertension",
+      "count": 4,
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 5,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2018"
+        ]
+      },
+      "last_seen": {
+        "section_id": "s6",
+        "section_header": "ASSESSMENT",
+        "page": 7,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": [
+            "Jan 2018"
+          ]
+        },
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s6",
+          "section_header": "ASSESSMENT",
+          "page": 7,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s1",
+        "s3",
+        "s6"
+      ],
+      "dates": [
+        "Jan 2018"
+      ]
+    },
+    {
+      "term": "myocardial infarction",
+      "count": 1,
+      "category": "procedure",
+      "status": "historical",
+      "ner_confidence": "high",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2021"
+        ]
+      },
+      "last_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": [
+          "Jan 2021"
+        ]
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": [
+            "Jan 2021"
+          ]
+        }
+      ],
+      "sections_present": [
+        "s1"
+      ],
+      "dates": [
+        "Jan 2021"
+      ]
+    },
+    {
+      "term": "diabetes mellitus",
+      "count": 3,
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 2,
+      "first_seen": {
+        "section_id": "s1",
+        "section_header": "PAST MEDICAL HISTORY",
+        "page": 2,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s1",
+          "section_header": "PAST MEDICAL HISTORY",
+          "page": 2,
+          "dates": []
+        },
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s1",
+        "s3"
+      ],
+      "dates": []
+    },
+    {
+      "term": "lisinopril",
+      "count": 2,
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 2,
+      "first_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s2",
+          "section_header": "MEDICATIONS",
+          "page": 3,
+          "dates": []
+        },
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s2",
+        "s4"
+      ],
+      "dates": []
+    },
+    {
+      "term": "metformin",
+      "count": 1,
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s2",
+        "section_header": "MEDICATIONS",
+        "page": 3,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s2",
+          "section_header": "MEDICATIONS",
+          "page": 3,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s2"
+      ],
+      "dates": []
+    },
+    {
+      "term": "heart failure",
+      "count": 3,
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 3,
+      "first_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s6",
+        "section_header": "ASSESSMENT",
+        "page": 7,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s6",
+          "section_header": "ASSESSMENT",
+          "page": 7,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s3",
+        "s6"
+      ],
+      "dates": []
+    },
+    {
+      "term": "atrial fibrillation",
+      "count": 2,
+      "category": "diagnosis",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 1,
+      "first_seen": {
+        "section_id": "s3",
+        "section_header": "ASSESSMENT",
+        "page": 4,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s3",
+          "section_header": "ASSESSMENT",
+          "page": 4,
+          "dates": []
+        },
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s3",
+        "s4"
+      ],
+      "dates": []
+    },
+    {
+      "term": "furosemide",
+      "count": 1,
+      "category": "medication",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s4"
+      ],
+      "dates": []
+    },
+    {
+      "term": "echocardiogram",
+      "count": 1,
+      "category": "procedure",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s4",
+        "section_header": "PLAN",
+        "page": 5,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s4",
+          "section_header": "PLAN",
+          "page": 5,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s4"
+      ],
+      "dates": []
+    },
+    {
+      "term": "bnp",
+      "count": 1,
+      "category": "biomarker",
+      "status": "active",
+      "ner_confidence": "high",
+      "recurrence_gap": 0,
+      "first_seen": {
+        "section_id": "s5",
+        "section_header": "LABS",
+        "page": 6,
+        "dates": []
+      },
+      "last_seen": {
+        "section_id": "s5",
+        "section_header": "LABS",
+        "page": 6,
+        "dates": []
+      },
+      "occurrences": [
+        {
+          "section_id": "s5",
+          "section_header": "LABS",
+          "page": 6,
+          "dates": []
+        }
+      ],
+      "sections_present": [
+        "s5"
+      ],
+      "dates": []
+    }
+  ]
+}

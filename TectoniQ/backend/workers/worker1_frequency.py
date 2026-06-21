@@ -1,7 +1,7 @@
 """
 Worker 1 — Frequency Tallier
 =============================
-Accepts a PDF binary (bytes), extracts raw text via pdfminer.six,
+Accepts a PDF binary (bytes), extracts raw text via PyMuPDF (fitz),
 splits the document into sections by detecting header patterns,
 and produces a term-frequency map across the full document.
 
@@ -24,14 +24,11 @@ Output contract
 }
 """
 
-import io
 import re
 from collections import Counter
 
-from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTTextContainer, LTAnno, LTChar
-
 from ._text import tokenize as _tokenize
+from ._text import extract_pdf_pages
 
 # ---------------------------------------------------------------------------
 # Header detection patterns
@@ -62,19 +59,8 @@ def _is_header(line: str) -> bool:
 
 
 def _extract_text_by_page(pdf_bytes: bytes) -> list[dict]:
-    """
-    Use pdfminer to extract text page-by-page.
-    Returns a list of { page: int, text: str } dicts.
-    """
-    pages = []
-    pdf_file = io.BytesIO(pdf_bytes)
-    for page_num, page_layout in enumerate(extract_pages(pdf_file), start=1):
-        page_text_parts = []
-        for element in page_layout:
-            if isinstance(element, LTTextContainer):
-                page_text_parts.append(element.get_text())
-        pages.append({"page": page_num, "text": "\n".join(page_text_parts)})
-    return pages
+    """Extract text page-by-page via PyMuPDF (see _text.extract_pdf_pages)."""
+    return extract_pdf_pages(pdf_bytes)
 
 
 def _split_into_sections(pages: list[dict]) -> list[dict]:

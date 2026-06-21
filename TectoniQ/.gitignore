@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+.pdfvenv/
+backend/.venv/
+venv/
+env/
+
+# Environment secrets — NEVER commit this
+backend/.env
+.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Uploads (temporary — not committed)
+uploads/
+backend/history/*.json

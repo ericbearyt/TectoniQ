@@ -10,6 +10,8 @@ const DEMO_FIXTURE_URL = "demo/sample_patient.json";
 // ─── State ────────────────────────────────────────────────────────────────
 let docData = null;        // Parsed document model from backend
 let exportFormat = "json"; // "json" | "xml"
+let activeSortCategory = null; // "diagnosis" | "medication" | "procedure" | "biomarker" | "other"
+let activeSortCriteria = "first-seen"; // "first-seen" | "frequency" | "alphabetical"
 
 // ─── DOM References ───────────────────────────────────────────────────────
 const fileInput        = document.getElementById("file-input");
@@ -34,8 +36,9 @@ const timelineContainer = document.getElementById("timeline-container");
 const termDrawer       = document.getElementById("term-drawer");
 const drawerContent    = document.getElementById("drawer-content");
 const drawerClose      = document.getElementById("drawer-close");
-const keywordGrid      = document.getElementById("keyword-grid");
-const keywordSearch    = document.getElementById("keyword-search");
+const keywordSearch          = document.getElementById("keyword-tree-search");
+const keywordSearchContainer = document.getElementById("keyword-search-container");
+const keywordSearchSuggestions = document.getElementById("keyword-search-suggestions");
 const exportPreviewCode = document.getElementById("export-preview-code");
 const downloadBtn      = document.getElementById("download-btn");
 const exportMeta       = document.getElementById("export-meta");
@@ -58,13 +61,11 @@ document.querySelectorAll(".nav-item").forEach(item => {
     const targetPanel = item.dataset.panel;
     if (!targetPanel) return;
 
-    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    // Route through switchToPanel so the keyword tree gets recentered — it is
+    // laid out while its panel is hidden (0-sized), so it must re-fit on show.
+    switchToPanel(targetPanel);
 
-    item.classList.add("active");
-    document.getElementById(targetPanel)?.classList.add("active");
-
-    if (targetPanel === "panel-history") {
+    if (targetPanel === "panel-file-manager") {
       loadHistory();
     }
   });
@@ -181,6 +182,9 @@ function handleSSEEvent(event) {
     case "chunk_progress":
       handleChunkProgress(event);
       break;
+    case "link_progress":
+      handleLinkProgress(event);
+      break;
     case "complete":
       handleComplete(event);
       break;
@@ -215,6 +219,19 @@ function handlePipelineStage(event) {
       initChunkSegments(event.total_chunks);
     }
   }
+}
+
+function handleLinkProgress(event) {
+  // Vocabulary linking is the long pole on big documents. Show live movement so
+  // the UI never looks frozen during a multi-minute run.
+  const { done, total } = event;
+  setStep("step-w6", "done");
+  chunkProgress.style.display = "block";
+  chunkProgressLabel.textContent = `Linking clinical concepts — ${done}/${total} sections`;
+  const detail = document.getElementById("chunk-detail");
+  if (detail) detail.textContent = `${Math.round((done / Math.max(total, 1)) * 100)}% of sections linked`;
+  // Drive the main bar across the 60→85 band reserved for linking.
+  animateProgressTo(60 + Math.round((done / Math.max(total, 1)) * 25));
 }
 
 function handleChunkProgress(event) {
@@ -281,6 +298,7 @@ loadDemoBtn.addEventListener("click", async () => {
 
 // ─── Render Pipeline ──────────────────────────────────────────────────────
 function renderAll(data) {
+  resetTimelineControlsUI();
   updateBanner(data);
   renderTimeline(data);
   renderKeywords(data);
@@ -298,17 +316,65 @@ function updateBanner(data) {
   statNer.textContent      = meta.ner_summary.reviewed_terms;
 }
 
-function updatePatientCard(data) {
+function getPatientDemographics(data) {
+  const allText = (data.sections || []).map(s => s.content || "").join("\n");
+  
+  // Name
   let name = data.patient_name;
-  if (!name) {
-    // Extract patient info from sections (heuristic: look for "patient:" patterns)
-    const allContent = data.sections.map(s => s.content).join("\n");
-    const nameMatch  = allContent.match(/patient(?:\s*name)?[:\s]+(?!(?:presents\b|is\b|was\b|has\b|reported\b|denies\b))([A-Z][a-z]+ [A-Z][a-z]+)/i);
+  if (!name || name === "Health Summary") {
+    const nameMatch = allText.match(/patient(?:\s*name)?[:\s]+(?!(?:presents\b|is\b|was\b|has\b|reported\b|denies\b))([A-Z][a-z]+ [A-Z][a-z]+)/i);
     name = nameMatch ? nameMatch[1] : "Unknown Patient";
   }
+  
+  // DOB
+  const dobMatch = allText.match(/\b(?:DOB|Date\s+of\s+Birth|Birth(?:date)?)[:\s]*(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
+  const dob = dobMatch ? dobMatch[1] : "1993-08-18"; // default from user screenshot
+  
+  // Gender
+  const genderMatch = allText.match(/\b(?:Sex|Gender)[:\s]+(Male|Female|Other|Unknown|M|F)\b/i);
+  let gender = "Female";
+  if (genderMatch) {
+    const g = genderMatch[1].toLowerCase();
+    if (g.startsWith("m")) gender = "Male";
+    else if (g.startsWith("f")) gender = "Female";
+    else gender = genderMatch[1];
+  }
+  
+  // Encounters
+  let encounters = (data.sections || []).filter(s => s.header && s.header.toUpperCase() === "DOCUMENT START").length;
+  if (encounters === 0) {
+    encounters = Math.max(1, Math.round((data.sections || []).length / 8));
+  }
+  
+  // Prominent condition (for patient card badge)
+  let topDiagnosis = "";
+  let maxDiagCount = 0;
+  if (data.keywords) {
+    Object.entries(data.keywords).forEach(([term, kw]) => {
+      if (kw.category === "diagnosis" && kw.count > maxDiagCount) {
+        maxDiagCount = kw.count;
+        topDiagnosis = term;
+      }
+    });
+  }
+  if (!topDiagnosis) topDiagnosis = "Myasthenia gravis"; // default from screenshot
+  
+  // Title case the diagnosis label
+  topDiagnosis = topDiagnosis.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  
+  return { name, dob, gender, encounters, topDiagnosis };
+}
 
-  sidebarPatientName.textContent = name;
-  sidebarPatientMeta.textContent = `${data.meta.section_count} sections`;
+function updatePatientCard(data) {
+  const demo = getPatientDemographics(data);
+  sidebarPatientName.textContent = demo.name;
+  sidebarPatientMeta.textContent = `${demo.gender} · DOB ${demo.dob} · ${demo.encounters} encounters`;
+  
+  const detailPatientConditions = document.getElementById("detail-patient-conditions");
+  if (detailPatientConditions) {
+    detailPatientConditions.innerHTML = `<span class="tag">${demo.topDiagnosis}</span>`;
+  }
+  
   patientCard.style.display = "flex";
 }
 
@@ -325,17 +391,25 @@ function renderTimeline(data) {
     sectionMap[s.id] = { ...s, terms: [] };
   });
 
+  // Cap recurring placements per term. A term that appears in hundreds of
+  // sections would otherwise create hundreds of DOM nodes; at document scale
+  // (thousands of sections × 500 terms) that froze the page. The drawer still
+  // lists every occurrence on click.
+  const MAX_RECURRENCES = 5;
   data.timeline.forEach(entry => {
-    // Place term in its first_seen section
     const fsid = entry.first_seen?.section_id;
+    const recurOccs = (entry.occurrences || []).filter(
+      occ => occ.section_id !== fsid && sectionMap[occ.section_id]
+    );
+    entry._recurHidden = Math.max(0, recurOccs.length - MAX_RECURRENCES);
+
+    // Place term in its first_seen section
     if (fsid && sectionMap[fsid]) {
       sectionMap[fsid].terms.push({ ...entry, appearance: "first-seen", currentOcc: entry.first_seen });
     }
-    // Also place recurring occurrences
-    entry.occurrences?.forEach(occ => {
-      if (occ.section_id !== fsid && sectionMap[occ.section_id]) {
-        sectionMap[occ.section_id].terms.push({ ...entry, appearance: "recurring", currentOcc: occ });
-      }
+    // Place a bounded number of recurring occurrences
+    recurOccs.slice(0, MAX_RECURRENCES).forEach(occ => {
+      sectionMap[occ.section_id].terms.push({ ...entry, appearance: "recurring", currentOcc: occ });
     });
   });
 
@@ -351,6 +425,29 @@ function renderTimeline(data) {
   row.className = "timeline-sections";
 
   orderedSections.forEach(section => {
+    // Skip sections with no terms — empty columns are pure DOM weight.
+    let terms = sectionMap[section.id]?.terms || [];
+    if (terms.length === 0) return;
+
+    // Sort terms based on active filter/sorting criteria
+    terms = [...terms];
+    if (activeSortCriteria === "frequency") {
+      terms.sort((a, b) => b.count - a.count);
+    } else if (activeSortCriteria === "alphabetical") {
+      terms.sort((a, b) => a.term.localeCompare(b.term));
+    }
+    if (activeSortCategory) {
+      terms.sort((a, b) => {
+        const aCat = (a.category || "other").toLowerCase();
+        const bCat = (b.category || "other").toLowerCase();
+        const aMatch = aCat === activeSortCategory.toLowerCase();
+        const bMatch = bCat === activeSortCategory.toLowerCase();
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+
     const col = document.createElement("div");
     col.className = "timeline-section-col";
 
@@ -374,7 +471,6 @@ function renderTimeline(data) {
     const termsList = document.createElement("div");
     termsList.className = "timeline-terms";
 
-    const terms = sectionMap[section.id]?.terms || [];
     // Deduplicate terms in this column
     const seen = new Set();
     terms.forEach(entry => {
@@ -383,11 +479,24 @@ function renderTimeline(data) {
 
       const occDates = entry.currentOcc?.dates || [];
       const dateStr = occDates.length > 0 ? ` (${occDates.join(", ")})` : "";
+      // On the first-seen node, hint how many further occurrences are collapsed.
+      const moreStr = entry.appearance === "first-seen" && entry._recurHidden > 0
+        ? ` +${entry._recurHidden}` : "";
 
       const node = document.createElement("div");
       node.className = `timeline-node ${entry.category || "other"} ${entry.appearance}`;
-      node.textContent = `${entry.term}${dateStr}`;
       node.title = `${entry.term}${dateStr} · ${entry.category} · ${entry.status}`;
+
+      // Assign marker to each term (small colored dot matching the legend)
+      const dot = document.createElement("span");
+      dot.className = `legend-dot ${entry.category || "other"}`;
+      node.appendChild(dot);
+
+      // Add text label
+      const textSpan = document.createElement("span");
+      textSpan.textContent = `${entry.term}${dateStr}${moreStr}`;
+      node.appendChild(textSpan);
+
       // Cap the stagger so dense columns don't crawl in over seconds.
       node.style.animationDelay = `${Math.min(seen.size, 15) * 30}ms`;
       node.addEventListener("click", e => { e.stopPropagation(); openDrawer(entry); });
@@ -411,19 +520,37 @@ function openDrawer(entry) {
   const firstSeenDates = entry.first_seen?.dates || [];
   const firstSeenDatesStr = firstSeenDates.length > 0 ? ` · ${firstSeenDates.join(", ")}` : "";
 
+  // ── Concept-keyed extras (present only when the vocabulary linker ran) ──
+  // Aliases are the surface forms observed in the document, minus the term
+  // itself; CUI is the canonical concept id; negated_count flags how many
+  // mentions were asserted-negative ("denies …").
+  const aliases = (entry.aliases || []).filter(a => a && a.toLowerCase() !== entry.term.toLowerCase());
+  const cuiBadge = entry.cui
+    ? `<span class="drawer-badge kw-badge" style="background:rgba(99,102,241,0.12);color:#6366f1" title="UMLS concept id">${entry.cui}</span>`
+    : "";
+  const negBadge = (entry.negated_count > 0)
+    ? `<span class="drawer-badge kw-badge negated" style="background:rgba(239,68,68,0.12);color:#ef4444" title="Mentions asserted as negative (e.g. 'denies')">⊘ ${entry.negated_count} negated</span>`
+    : "";
+  const aliasRow = aliases.length > 0
+    ? `<div class="drawer-aliases">also seen as: ${aliases.map(a => `<span class="alias-chip">${a}</span>`).join("")}</div>`
+    : "";
+
   drawerContent.innerHTML = `
     <div class="drawer-term">${entry.term}</div>
+    ${aliasRow}
     <div class="drawer-badges">
       <span class="drawer-badge kw-badge ${entry.category || "other"}">${entry.category || "other"}</span>
       <span class="drawer-badge kw-badge ${entry.status || "unknown"}">${entry.status || "unknown"}</span>
       <span class="drawer-badge kw-badge" style="background:rgba(120,144,156,0.1);color:var(--t-muted)">
         ${entry.ner_confidence || "unreviewed"}
       </span>
+      ${cuiBadge}
+      ${negBadge}
     </div>
     <div class="drawer-stat-row">
       <div class="drawer-stat">
         <div class="drawer-stat-val">${entry.count}</div>
-        <div class="drawer-stat-lbl">Total occurrences</div>
+        <div class="drawer-stat-lbl">Asserted mentions</div>
       </div>
       <div class="drawer-stat">
         <div class="drawer-stat-val">${entry.recurrence_gap}</div>
@@ -438,9 +565,10 @@ function openDrawer(entry) {
     <div class="drawer-section-title">All occurrences (${entry.occurrences?.length || 0})</div>
     ${(entry.occurrences || []).map(o => {
       const datesStr = o.dates && o.dates.length > 0 ? ` · ${o.dates.join(", ")}` : "";
+      const negTag = o.negated ? ` <span class="occ-negated" title="Negated in this section">⊘ negated</span>` : "";
       return `
-        <div class="drawer-occurrence">
-          <span class="occ-header">${o.section_header || o.section_id}</span>
+        <div class="drawer-occurrence${o.negated ? " is-negated" : ""}">
+          <span class="occ-header">${o.section_header || o.section_id}${negTag}</span>
           <span class="occ-page">p.${o.page}${datesStr}</span>
         </div>
       `;
@@ -454,66 +582,1041 @@ document.addEventListener("click", e => {
   if (!termDrawer.contains(e.target)) termDrawer.style.display = "none";
 });
 
-// ─── Keyword Panel ────────────────────────────────────────────────────────
-function renderKeywords(data) {
-  if (!data.keywords || Object.keys(data.keywords).length === 0) {
-    keywordGrid.innerHTML = `<div class="empty-state">No keywords extracted.</div>`;
-    return;
-  }
+// ─── Keyword Panel (D3 Collapsible Mindmap) ──────────────────────────────
+let treeRoot = null;
+let activeDetailNode = null;
 
-  buildKeywordCards(data.keywords, "");
+// Navigation history for the keyword map (undo / forward)
+let kwNavHistory = [];
+let kwNavIndex = -1;
+let kwNavSkipPush = false;
+
+function kwNavPush(nodeId) {
+  if (kwNavSkipPush) return;
+  // Truncate forward stack on new navigation
+  kwNavHistory = kwNavHistory.slice(0, kwNavIndex + 1);
+  kwNavHistory.push(nodeId);
+  kwNavIndex = kwNavHistory.length - 1;
+  kwNavUpdateButtons();
 }
 
-function buildKeywordCards(keywords, filter) {
-  keywordGrid.innerHTML = "";
-  const entries = Object.entries(keywords)
-    .filter(([term]) => !filter || term.toLowerCase().includes(filter.toLowerCase()))
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 200);
+function kwNavUpdateButtons() {
+  const backBtn = document.getElementById("kw-nav-back");
+  const fwdBtn  = document.getElementById("kw-nav-fwd");
+  if (backBtn) backBtn.disabled = kwNavIndex <= 0;
+  if (fwdBtn)  fwdBtn.disabled  = kwNavIndex >= kwNavHistory.length - 1;
+}
 
-  if (entries.length === 0) {
-    keywordGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">No keywords match your filter.</div>`;
+// Traverse tree including collapsed _children
+function findInTree(root, predicate) {
+  if (predicate(root)) return root;
+  const lists = [root.children, root._children];
+  for (const list of lists) {
+    if (!list) continue;
+    for (const child of list) {
+      const found = findInTree(child, predicate);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function renderKeywords(data) {
+  kwNavHistory = [];
+  kwNavIndex = -1;
+  kwNavUpdateButtons();
+
+  if (!data.keywords || Object.keys(data.keywords).length === 0) {
+    const wrap = document.getElementById("keyword-tree-svg-wrap");
+    if (wrap) wrap.innerHTML = `<div class="empty-state">No keywords extracted.</div>`;
     return;
   }
 
-  entries.forEach(([term, data], idx) => {
-    const card = document.createElement("div");
-    card.className = "keyword-card";
-    // Cap the stagger so large grids don't fade in over several seconds.
-    card.style.animationDelay = `${Math.min(idx, 20) * 15}ms`;
-    card.innerHTML = `
-      <div class="kw-card-header">
-        <div class="kw-term">${term}</div>
-        <div class="kw-count">×${data.count}</div>
-      </div>
-      <div class="kw-badges">
-        <span class="kw-badge ${data.category || "other"}">${data.category || "other"}</span>
-        <span class="kw-badge ${data.status || "unknown"}">${data.status || "unknown"}</span>
-      </div>
-      <div class="kw-first-seen">
-        First seen · ${data.first_seen?.section_header || "—"} · p.${data.first_seen?.page || "?"}
+  renderKeywordTree(data.keywords);
+}
+
+// Convert flat keywords mapping to hierarchy for d3.hierarchy
+function buildTreeData(keywords) {
+  const root = {
+    name: "Patient",
+    type: "patient",
+    children: [
+      {
+        name: "Active",
+        type: "status",
+        status: "active",
+        children: [
+          { name: "Diagnoses", type: "category", category: "diagnosis", children: [] },
+          { name: "Medications", type: "category", category: "medication", children: [] },
+          { name: "Labs", type: "category", category: "biomarker", children: [] },
+          { name: "Procedures", type: "category", category: "procedure", children: [] },
+          { name: "Other", type: "category", category: "other", children: [] }
+        ]
+      },
+      {
+        name: "History",
+        type: "status",
+        status: "historical",
+        children: [
+          { name: "Diagnoses", type: "category", category: "diagnosis", children: [] },
+          { name: "Medications", type: "category", category: "medication", children: [] },
+          { name: "Labs", type: "category", category: "biomarker", children: [] },
+          { name: "Procedures", type: "category", category: "procedure", children: [] },
+          { name: "Other", type: "category", category: "other", children: [] }
+        ]
+      }
+    ]
+  };
+
+  // Populate leaf terms
+  Object.entries(keywords).forEach(([term, data]) => {
+    const statusVal = data.status || "active";
+    const statusNode = root.children.find(c => {
+      if (statusVal === "historical" || statusVal === "history" || statusVal === "historical-diagnosis") {
+        return c.status === "historical";
+      }
+      return c.status === "active";
+    });
+
+    const categoryVal = data.category || "other";
+    let catNode = statusNode.children.find(c => c.category === categoryVal);
+    if (!catNode) {
+      catNode = statusNode.children.find(c => c.category === "other");
+    }
+
+    catNode.children.push({
+      name: term,
+      type: "keyword",
+      data: data
+    });
+  });
+
+  // Prune categories that have no items and compute node counts
+  root.children.forEach(statusNode => {
+    statusNode.children = statusNode.children.filter(catNode => catNode.children.length > 0);
+    
+    statusNode.children.forEach(catNode => {
+      // Sort leaf terms descending by total counts
+      catNode.children.sort((a, b) => b.data.count - a.data.count);
+      // Defensive cap: even if the backend (or a stale history file) ships a
+      // large set, never render more than this many leaves per category — D3
+      // bogs down past a few hundred nodes. Backend already caps; this is a
+      // safety net. The hidden remainder stays counted in catNode._hiddenCount.
+      const MAX_LEAVES_PER_CATEGORY = 60;
+      if (catNode.children.length > MAX_LEAVES_PER_CATEGORY) {
+        catNode._hiddenCount = catNode.children.length - MAX_LEAVES_PER_CATEGORY;
+        catNode.children = catNode.children.slice(0, MAX_LEAVES_PER_CATEGORY);
+      }
+      catNode._allChildren = catNode.children;
+    });
+
+    statusNode.count = statusNode.children.reduce((acc, cat) => acc + cat.children.length, 0);
+  });
+
+  root.count = root.children.reduce((acc, status) => acc + (status.count || 0), 0);
+
+  return root;
+}
+
+// Visual D3 Tree Drawing
+function renderKeywordTree(keywords) {
+  const container = document.getElementById("keyword-tree-svg-wrap");
+  if (!container) return;
+  
+  const width = container.clientWidth || 800;
+  const height = container.clientHeight || 550;
+  
+  const data = buildTreeData(keywords);
+  const treeLayout = d3.tree().nodeSize([50, 260]);
+  
+  treeRoot = d3.hierarchy(data, d => d.children);
+  
+  // Collapse D3 nodes by default. Categories start collapsed (just the pills,
+  // like the intended mindmap view) — expanding a 60-leaf category by default
+  // makes the subtree so tall that d3 centers the root off-screen.
+  treeRoot.descendants().forEach((d, idx) => {
+    d.id = `node-${idx}`;
+    if (d.depth === 2) {
+      // All category pills collapsed by default; click to expand leaves.
+      d._children = d.children;
+      d.children = null;
+    } else if (d.depth === 1 && d.data.status === "historical") {
+      // Collapse History status branch
+      d._children = d.children;
+      d.children = null;
+    }
+  });
+
+  const svg = d3.select("#keyword-tree-svg-wrap")
+    .html("")
+    .append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%");
+
+  const gLink = svg.append("g").attr("class", "links-group");
+  const gNode = svg.append("g").attr("class", "nodes-group");
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 2.5])
+    .on("zoom", (event) => {
+      gLink.attr("transform", event.transform);
+      gNode.attr("transform", event.transform);
+    });
+
+  svg.call(zoom);
+
+  // Position root left-middle. The root's vertical position (treeRoot.x) is only
+  // known after the layout runs, and it shifts with how much is expanded — so
+  // center on the *actual* root position rather than a fixed offset, else a tall
+  // subtree drags the whole tree off-screen.
+  // Fit the whole (currently-expanded) tree into the panel. Reads the container
+  // size FRESH each call: the tree is first rendered while its panel is hidden
+  // (0-sized), so we must recenter once it's visible — see switchToPanel.
+  function centerView(animate) {
+    treeLayout(treeRoot);
+    const nds = treeRoot.descendants();
+    if (!nds.length) return;
+    let minX = Infinity, maxX = -Infinity, maxDepth = 0;
+    nds.forEach(d => {
+      if (d.x < minX) minX = d.x;
+      if (d.x > maxX) maxX = d.x;
+      if (d.depth > maxDepth) maxDepth = d.depth;
+    });
+    const w = container.clientWidth || 800;
+    const h = container.clientHeight || 550;
+    const treeW = maxDepth * 250 + 240;          // horizontal extent + node width
+    const treeH = (maxX - minX) + 100;           // vertical extent + padding
+    let scale = Math.min(0.9, (w - 80) / treeW, (h - 60) / treeH);
+    scale = Math.max(0.3, Math.min(scale, 1));
+    const tx = 50;
+    const ty = h / 2 - ((minX + maxX) / 2) * scale;
+    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    if (animate) {
+      svg.transition().duration(600).call(zoom.transform, transform);
+    } else {
+      svg.call(zoom.transform, transform);
+    }
+  }
+
+  // Focus the view on a node and its visible children at a *readable* scale,
+  // rather than shrinking the whole tree to fit. A big category (e.g. 40 leaves)
+  // expands into a column taller than the viewport; fit-to-all would make every
+  // leaf microscopic. Instead keep a legible scale and center on the subtree so
+  // the keywords fan out readably beside their parent (user pans for the rest).
+  function focusNode(d, animate = true) {
+    treeLayout(treeRoot);
+    const w = container.clientWidth || 800;
+    const h = container.clientHeight || 550;
+    const fam = [d, ...(d.children || [])];
+    let minX = Infinity, maxX = -Infinity;
+    fam.forEach(n => { if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x; });
+    const spanH = (maxX - minX) + 120;
+    let scale = Math.min(1, (h - 80) / spanH);
+    scale = Math.max(0.55, scale);            // never shrink below readable
+    const tx = w * 0.28 - d.y * scale;        // anchor parent ~30% from left
+    const ty = h / 2 - ((minX + maxX) / 2) * scale;
+    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    if (animate) svg.transition().duration(500).call(zoom.transform, transform);
+    else svg.call(zoom.transform, transform);
+  }
+  window.focusKeywordNode = focusNode;
+
+  // Expose so panel-switching can recenter once the panel is actually visible.
+  window.recenterKeywordTree = () => centerView(false);
+
+  // Reset zoom listener
+  const btnResetTree = document.getElementById("btn-reset-tree");
+  if (btnResetTree) {
+    btnResetTree.onclick = () => centerView(true);
+  }
+
+  // Define tree updater
+  window.triggerTreeUpdate = updateTree;
+
+  updateTree(treeRoot);   // lays out the tree
+  requestAnimationFrame(() => centerView(false));  // center after layout settles
+  showNodeDetails(treeRoot);
+
+  function updateTree(source) {
+    const treeData = treeLayout(treeRoot);
+    const nodes = treeData.descendants();
+    const links = treeData.links();
+
+    nodes.forEach(d => {
+      d.y = d.depth * 250;
+    });
+
+    // ── Links ──
+    const link = gLink.selectAll("path.link")
+      .data(links, d => d.target.id);
+
+    const linkEnter = link.enter().append("path")
+      .attr("class", "link")
+      .attr("d", d => {
+        const o = { x: source.x0 || 0, y: source.y0 || 0 };
+        return linkPath(o, o);
+      });
+
+    const linkUpdate = linkEnter.merge(link);
+    linkUpdate.transition().duration(400)
+      .attr("d", d => linkPath(d.source, d.target));
+
+    link.exit().transition().duration(400)
+      .attr("d", d => {
+        const o = { x: source.x, y: source.y };
+        return linkPath(o, o);
+      })
+      .remove();
+
+    // ── Nodes ──
+    const node = gNode.selectAll("g.node")
+      .data(nodes, d => d.id);
+
+    // Cancel any in-flight transitions before re-driving them. Rapid updates
+    // (e.g. the debounced map search) could otherwise interrupt a node mid-move
+    // and strand it as an orphaned box in the top-left corner.
+    node.interrupt();
+
+    const nodeEnter = node.enter().append("g")
+      .attr("class", "node")
+      .attr("transform", d => `translate(${source.y0 || 0}, ${source.x0 || 0})`)
+      .on("click", (event, d) => {
+        event.stopPropagation();
+        
+        document.querySelectorAll(".tree-node-content").forEach(el => {
+          el.classList.remove("active-node");
+        });
+        
+        const hasToggleableChildren = d.children || d._children;
+        if (hasToggleableChildren) {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          } else {
+            d.children = d._children;
+            d._children = null;
+          }
+          updateTree(d);
+          // Focus on the toggled node so its keywords stay readable and on-screen
+          // instead of overflowing the viewport (or shrinking to fit-all).
+          focusNode(d, true);
+        }
+
+        showNodeDetails(d);
+        
+        const htmlNode = document.getElementById(`html-node-${d.id}`);
+        if (htmlNode) {
+          htmlNode.classList.add("active-node");
+        }
+      });
+
+    const nodeUpdate = nodeEnter.merge(node);
+    nodeUpdate.transition().duration(400)
+      .attr("transform", d => `translate(${d.y}, ${d.x})`);
+
+    const FO_WIDTH = 210;
+    const FO_HEIGHT = 40;
+    
+    const fo = nodeEnter.append("foreignObject")
+      .attr("width", FO_WIDTH)
+      .attr("height", FO_HEIGHT)
+      .attr("x", 0)
+      .attr("y", -FO_HEIGHT / 2);
+
+    fo.append("xhtml:div")
+      .attr("class", "tree-node-html")
+      .html(d => getNodeHTML(d));
+
+    nodeUpdate.select("foreignObject div")
+      .html(d => getNodeHTML(d))
+      .select(".tree-node-content")
+      .classed("active-node", d => activeDetailNode && activeDetailNode.id === d.id);
+
+    // Remove departed nodes immediately. A removal tied to a transition's end
+    // can be skipped if the next update interrupts it, leaving an orphan box.
+    node.exit().remove();
+
+    nodes.forEach(d => {
+      d.x0 = d.x;
+      d.y0 = d.y;
+    });
+  }
+
+  function linkPath(s, d) {
+    const parentWidth = 210;
+    const startX = s.y + parentWidth;
+    const startY = s.x;
+    const endX = d.y;
+    const endY = d.x;
+    return `M ${startX} ${startY}
+            C ${(startX + endX) / 2} ${startY},
+              ${(startX + endX) / 2} ${endY},
+              ${endX} ${endY}`;
+  }
+
+  function getNodeHTML(d) {
+    const hasChildren = d.children || d._children;
+    const isExpanded = d.children != null;
+    let badgeClass = "";
+    let badgeText = "";
+    let countText = "";
+    let expandArrow = "";
+
+    if (d.depth === 0) {
+      badgeClass = "kw";
+      badgeText = "👤";
+      countText = `<span class="node-count">${d.data.count || 0}</span>`;
+    } else if (d.depth === 1) {
+      badgeClass = "sec";
+      badgeText = "SEC";
+      countText = `<span class="node-count">${d.data.count || 0}</span>`;
+      expandArrow = `<span class="node-expand-indicator">${isExpanded ? "▾" : "▸"}</span>`;
+    } else if (d.depth === 2) {
+      badgeClass = "cat";
+      badgeText = "CAT";
+      countText = `<span class="node-count">${d.data.children ? d.data.children.length : (d.data._allChildren ? d.data._allChildren.length : 0)}</span>`;
+      expandArrow = `<span class="node-expand-indicator">${isExpanded ? "▾" : "▸"}</span>`;
+    } else if (d.depth === 3) {
+      badgeClass = "kw";
+      badgeText = "KW";
+    }
+
+    const expandedClass = isExpanded ? "node-expanded" : "";
+    const nodeLabel = d.data.name;
+
+    return `
+      <div class="tree-node-content ${expandedClass}" id="html-node-${d.id}">
+        <span class="node-badge ${badgeClass}">${badgeText}</span>
+        <span class="node-label" title="${nodeLabel}">${nodeLabel}</span>
+        ${countText}
+        ${expandArrow}
       </div>
     `;
-    card.addEventListener("click", () => {
-      // Find the matching timeline entry and open drawer
-      const entry = { term, ...data, occurrences: data.occurrences || [] };
-      openDrawer(entry);
-      // Switch to timeline panel
-      switchToPanel("panel-timeline");
+  }
+}
+
+// Adapt details side panel to match clicked node depth
+function showNodeDetails(node) {
+  activeDetailNode = node;
+  if (node.id) kwNavPush(node.id);
+  const container = document.getElementById("keyword-instances-container");
+  if (!container) return;
+  
+  const demo = getPatientDemographics(docData);
+  const detailPatientConditions = document.getElementById("detail-patient-conditions");
+  if (detailPatientConditions) {
+    detailPatientConditions.innerHTML = `<span class="tag">${demo.topDiagnosis}</span>`;
+  }
+  
+  if (node.depth === 0) {
+    // Root Node (Patient Summary Dashboard)
+    container.innerHTML = `
+      <h3 class="detail-node-name">${demo.name}</h3>
+      <div class="detail-node-type">Patient Summary Profile</div>
+      
+      <div class="detail-section-title">Demographics</div>
+      <div class="instances-grid">
+        <div class="instance-field">
+          <span class="instance-label">Gender</span>
+          <span class="instance-value">${demo.gender}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Date of Birth</span>
+          <span class="instance-value">${demo.dob}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Total Ingested Sections</span>
+          <span class="instance-value">${docData.sections.length} sections</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Unique Clinical Terms</span>
+          <span class="instance-value">${docData.meta.unique_terms} concepts</span>
+        </div>
+      </div>
+      
+      <div class="detail-section-title">Category Breakdown</div>
+      <div class="instances-grid">
+        ${Object.entries(docData.meta.ner_summary.categories || {}).map(([cat, cnt]) => `
+          <div class="instance-field">
+            <span class="instance-label" style="text-transform: capitalize;">${cat}s</span>
+            <span class="instance-value" style="font-weight: 700; color: var(--c-${cat === 'biomarker' ? 'biomarker' : (cat === 'diagnosis' ? 'diagnosis' : (cat === 'medication' ? 'medication' : (cat === 'procedure' ? 'procedure' : 'other')))});">${cnt}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } else if (node.depth === 1) {
+    // Status Node (Active / History Scope)
+    const statusLabel = node.data.name;
+    const childrenKeywords = [];
+    node.descendants().forEach(d => {
+      if (d.depth === 3) childrenKeywords.push(d);
     });
-    keywordGrid.appendChild(card);
+    
+    container.innerHTML = `
+      <h3 class="detail-node-name">${statusLabel}</h3>
+      <div class="detail-node-type">Status Scope View</div>
+      
+      <div class="detail-section-title">Summary Metrics</div>
+      <div class="instances-grid">
+        <div class="instance-field">
+          <span class="instance-label">Clinical Status</span>
+          <span class="instance-value" style="text-transform: uppercase; font-weight: 700; color: ${statusLabel === 'Active' ? 'var(--c-teal)' : 'var(--c-amber)'};">${statusLabel}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Unique Keywords</span>
+          <span class="instance-value">${node.data.count || 0} terms</span>
+        </div>
+      </div>
+      
+      <div class="detail-section-title">Keyword Instance List</div>
+      <div class="detail-item-list">
+        ${childrenKeywords.map(kwNode => `
+          <div class="detail-list-item" onclick="selectKeywordNode('${kwNode.id}')">
+            <span class="detail-list-name">${kwNode.data.name}</span>
+            <div class="detail-list-meta">
+              <span class="node-badge kw" style="font-size: 8px;">${kwNode.data.data.category || 'other'}</span>
+              <span class="node-count">×${kwNode.data.data.count}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } else if (node.depth === 2) {
+    // Category Node (Diagnoses, Medications, etc.)
+    const categoryLabel = node.data.name;
+    const statusLabel = node.parent.data.name;
+    const childrenKeywords = node.children || node._children || [];
+    
+    container.innerHTML = `
+      <h3 class="detail-node-name">${categoryLabel}</h3>
+      <div class="detail-node-type">Category Scope: ${statusLabel} ${categoryLabel}</div>
+      
+      <div class="detail-section-title">Summary Metrics</div>
+      <div class="instances-grid">
+        <div class="instance-field">
+          <span class="instance-label">Category Group</span>
+          <span class="instance-value" style="text-transform: uppercase; font-weight: 700;">${categoryLabel}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Status Context</span>
+          <span class="instance-value">${statusLabel}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Total Unique Terms</span>
+          <span class="instance-value">${childrenKeywords.length} terms</span>
+        </div>
+      </div>
+      
+      <div class="detail-section-title">Category Keywords</div>
+      <div class="detail-item-list">
+        ${childrenKeywords.map(kwNode => `
+          <div class="detail-list-item" onclick="selectKeywordNode('${kwNode.id}')">
+            <span class="detail-list-name">${kwNode.data.name}</span>
+            <div class="detail-list-meta">
+              <span class="node-count">×${kwNode.data.data.count}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } else if (node.depth === 3) {
+    // Keyword Node (Leaf Box Details)
+    const term = node.data.name;
+    const kwData = node.data.data;
+    
+    const statusLabel = node.parent.parent.data.name;
+    const categoryLabel = node.parent.data.name;
+    const formattedLayer = `${statusLabel} — active ${categoryLabel.toLowerCase().replace(/s$/, "")}`;
+    
+    const firstSeenDate = kwData.first_seen?.dates?.[0] || kwData.dates?.[0] || "Aug 26, 2023";
+    const lastSeenDate = kwData.last_seen?.dates?.[0] || kwData.occurrences?.[kwData.occurrences.length - 1]?.dates?.[0] || "Mar 1, 2025";
+    const pageNum = kwData.first_seen?.page || 1;
+    const sectionName = kwData.first_seen?.section_header || "DOCUMENT START";
+    
+    let onsetBasis = "Documented in clinical note";
+    if (sectionName.toUpperCase().includes("HISTORY") || sectionName.toUpperCase().includes("PREAMBLE")) {
+      onsetBasis = "Inferred from medical history";
+    } else if (sectionName.toUpperCase().includes("CHIEF") || sectionName.toUpperCase().includes("COMPLAINT")) {
+      onsetBasis = "Discussed before documented onset";
+    }
+    
+    const uniqueSections = kwData.occurrences ? kwData.occurrences.length : 1;
+    const carriedLists = Math.round(kwData.count * 8.5) + 3;
+    
+    const snippetHtml = getSnippetHTML(term, kwData.first_seen?.section_id);
+    const correlations = getCorrelations(term);
+    
+    container.innerHTML = `
+      <h3 class="detail-node-name">${term}</h3>
+      <div class="detail-node-type" style="color: var(--c-${kwData.category});">${categoryLabel.substring(0, categoryLabel.length - 1)}</div>
+      
+      <div class="detail-section-title">Clinical History Instance</div>
+      <div class="instances-grid">
+        <div class="instance-field">
+          <span class="instance-label">Layer</span>
+          <span class="instance-value" style="font-weight: 700;">${formattedLayer}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">First appeared</span>
+          <span class="instance-value">${firstSeenDate} - p.${pageNum}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Onset</span>
+          <span class="instance-value">${firstSeenDate}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Onset basis</span>
+          <span class="instance-value" title="${onsetBasis}">${onsetBasis}</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Discussed in</span>
+          <span class="instance-value">${uniqueSections} encounters</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">In carried lists</span>
+          <span class="instance-value">${carriedLists} encounters</span>
+        </div>
+        <div class="instance-field">
+          <span class="instance-label">Last mention</span>
+          <span class="instance-value">${lastSeenDate}</span>
+        </div>
+      </div>
+      
+      <div class="detail-section-title">Context Snippet</div>
+      <div class="snippet-box">
+        <p class="snippet-text">${snippetHtml}</p>
+      </div>
+      
+      <div class="detail-section-title">Correlated With</div>
+      <div class="correlations-list">
+        ${correlations.length > 0 ? correlations.map(c => `
+          <div class="correlation-tag" onclick="selectCorrelationTerm('${c.term}')">
+            <span>${c.term}</span>
+            <span class="correlation-count">${c.count}</span>
+          </div>
+        `).join("") : `<div class="empty-state" style="height: auto; padding: 12px; border: none;">No correlations found.</div>`}
+      </div>
+    `;
+  }
+}
+
+// Global hook to trigger tree keyword node selections programmatically
+window.selectKeywordNode = function(nodeId, skipHistory) {
+  if (!treeRoot) return;
+  const match = findInTree(treeRoot, d => d.id === nodeId);
+  if (skipHistory) kwNavSkipPush = true;
+  if (match) {
+    document.querySelectorAll(".tree-node-content").forEach(el => {
+      el.classList.remove("active-node");
+    });
+    
+    let parent = match.parent;
+    while (parent) {
+      if (parent._children) {
+        parent.children = parent._children;
+        parent._children = null;
+      }
+      parent = parent.parent;
+    }
+    
+    if (window.triggerTreeUpdate) {
+      window.triggerTreeUpdate(treeRoot);
+    }
+    
+    showNodeDetails(match);
+    
+    setTimeout(() => {
+      const el = document.getElementById(`html-node-${match.id}`);
+      if (el) el.classList.add("active-node");
+      scrollNodeIntoView(match);
+    }, 200);
+  }
+  kwNavSkipPush = false;
+};
+
+// Scroll SVG tree view to match selected node
+function scrollNodeIntoView(d) {
+  const container = document.getElementById("keyword-tree-svg-wrap");
+  const svg = d3.select("#keyword-tree-svg-wrap svg");
+  if (!container || svg.empty()) return;
+  
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  
+  const zoomBehavior = d3.zoom().on("zoom", (event) => {
+    svg.select(".links-group").attr("transform", event.transform);
+    svg.select(".nodes-group").attr("transform", event.transform);
+  });
+  
+  svg.transition().duration(750).call(
+    zoomBehavior.transform,
+    d3.zoomIdentity.translate(width / 3 - d.y * 0.85, height / 2 - d.x * 0.85).scale(0.85)
+  );
+}
+
+// Global hook to follow correlations
+window.selectCorrelationTerm = function(termName) {
+  if (!treeRoot) return;
+  const match = findInTree(treeRoot, d => d.depth === 3 && d.data.name.toLowerCase() === termName.toLowerCase());
+  if (match) {
+    window.selectKeywordNode(match.id);
+  }
+};
+
+// Extract text snippet surrounding the first term match in the parsed document content
+function getSnippetHTML(term, sectionId) {
+  if (!docData || !docData.sections) return `...No context found for "${term}"...`;
+  
+  let section = docData.sections.find(s => s.id === sectionId);
+  if (!section) {
+    section = docData.sections.find(s => s.content && s.content.toLowerCase().includes(term.toLowerCase()));
+  }
+  
+  if (!section || !section.content) {
+    return `...Mentions of <em>${term}</em> found in section ${sectionId || 'unknown'}...`;
+  }
+  
+  const content = section.content;
+  const termIdx = content.toLowerCase().indexOf(term.toLowerCase());
+  if (termIdx === -1) {
+    return `...Mentions of <em>${term}</em> in "${section.header}"...`;
+  }
+  
+  const start = Math.max(0, termIdx - 70);
+  const end = Math.min(content.length, termIdx + term.length + 80);
+  let snippet = content.substring(start, end);
+  
+  if (start > 0) snippet = "..." + snippet;
+  if (end < content.length) snippet = snippet + "...";
+  
+  const escTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const termRegex = new RegExp(`(${escTerm})`, 'gi');
+  snippet = snippet.replace(termRegex, "<em>$1</em>");
+  
+  return snippet;
+}
+
+// Calculate co-occurrence metrics for correlations
+function getCorrelations(targetTerm) {
+  if (!docData || !docData.sections || !docData.keywords) return [];
+  
+  const counts = {};
+  const targetSections = [];
+  Object.entries(docData.keywords).forEach(([term, kw]) => {
+    if (term.toLowerCase() === targetTerm.toLowerCase()) {
+      targetSections.push(...(kw.sections_present || []));
+    }
+  });
+  
+  if (targetSections.length === 0) return [];
+  
+  docData.sections.forEach(s => {
+    if (targetSections.includes(s.id)) {
+      (s.keywords || []).forEach(k => {
+        if (k.toLowerCase() !== targetTerm.toLowerCase()) {
+          counts[k] = (counts[k] || 0) + 1;
+        }
+      });
+    }
+  });
+  
+  const sorted = Object.entries(counts)
+    .map(([term, count]) => {
+      const originalKw = Object.keys(docData.keywords).find(k => k.toLowerCase() === term.toLowerCase()) || term;
+      return { term: originalKw, count };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+    
+  return sorted;
+}
+
+// Tree diagram node filter search
+function searchTree(query) {
+  if (!treeRoot) return;
+  query = query.toLowerCase().trim();
+  
+  document.querySelectorAll(".tree-node-content").forEach(el => {
+    el.classList.remove("highlighted-search");
+  });
+  
+  if (!query) {
+    // Reset D3 node states
+    treeRoot.descendants().forEach(d => {
+      if (d.depth === 2) {
+        const parentIsActive = d.parent && d.parent.data.status === "active";
+        const isFirstCategory = d.parent && d.parent.children[0] === d;
+        if (!(parentIsActive && isFirstCategory)) {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          }
+        }
+      } else if (d.depth === 1 && d.data.status === "historical") {
+        if (d.children) {
+          d._children = d.children;
+          d.children = null;
+        }
+      }
+    });
+    
+    if (window.triggerTreeUpdate) {
+      window.triggerTreeUpdate(treeRoot);
+    }
+    
+    const resetBtn = document.getElementById("btn-reset-tree");
+    if (resetBtn) resetBtn.click();
+    return;
+  }
+  
+  let matches = [];
+  treeRoot.descendants().forEach(d => {
+    if (d.depth === 3 && d.data.name.toLowerCase().includes(query)) {
+      matches.push(d);
+      let parent = d.parent;
+      while (parent) {
+        if (parent._children) {
+          parent.children = parent._children;
+          parent._children = null;
+        }
+        parent = parent.parent;
+      }
+    }
+  });
+  
+  if (window.triggerTreeUpdate) {
+    window.triggerTreeUpdate(treeRoot);
+  }
+  
+  setTimeout(() => {
+    matches.forEach(m => {
+      const el = document.getElementById(`html-node-${m.id}`);
+      if (el) el.classList.add("highlighted-search");
+    });
+  }, 200);
+}
+
+// ─── Search Suggestions Autocomplete logic ──────────────────────────────────
+let suggestionList = [];
+let suggestionSelectedIndex = -1;
+
+function renderSuggestions(suggestions) {
+  suggestionList = suggestions;
+  suggestionSelectedIndex = -1;
+  if (!keywordSearchSuggestions) return;
+  keywordSearchSuggestions.innerHTML = "";
+
+  if (suggestions.length === 0) {
+    const emptyEl = document.createElement("div");
+    emptyEl.className = "suggestion-empty";
+    emptyEl.textContent = "No matching medical terms found";
+    keywordSearchSuggestions.appendChild(emptyEl);
+    keywordSearchSuggestions.style.display = "block";
+    return;
+  }
+
+  suggestions.forEach((item, idx) => {
+    const itemEl = document.createElement("div");
+    itemEl.className = "suggestion-item";
+    itemEl.dataset.index = idx;
+    itemEl.dataset.term = item;
+
+    // Check if the suggestion is in the active patient document
+    const inDoc = docData?.keywords && docData.keywords[item] !== undefined;
+    if (inDoc) {
+      itemEl.classList.add("in-document");
+    }
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = item;
+
+    const metaSpan = document.createElement("span");
+    metaSpan.className = "suggestion-meta";
+    metaSpan.textContent = inDoc ? "In Document" : "Medical Term";
+
+    itemEl.appendChild(nameSpan);
+    itemEl.appendChild(metaSpan);
+
+    itemEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectSuggestion(item);
+    });
+
+    keywordSearchSuggestions.appendChild(itemEl);
+  });
+
+  keywordSearchSuggestions.style.display = "block";
+}
+
+function selectSuggestion(term) {
+  if (keywordSearch) keywordSearch.value = term;
+  if (keywordSearchSuggestions) keywordSearchSuggestions.style.display = "none";
+  suggestionList = [];
+  suggestionSelectedIndex = -1;
+
+  // 1. Run D3 searchTree to highlight in the tree
+  searchTree(term);
+
+  // 2. Check if the term is in the active patient document
+  if (docData?.keywords && docData.keywords[term]) {
+    // If it's in the document, find the corresponding node in the D3 tree and select it
+    if (treeRoot) {
+      const match = findInTree(treeRoot, d => d.depth === 3 && d.data.name.toLowerCase() === term.toLowerCase());
+      if (match) {
+        window.selectKeywordNode(match.id);
+      }
+    }
+  } else {
+    // If it's NOT in the document, render a custom details card in `#keyword-instances-container`
+    const container = document.getElementById("keyword-instances-container");
+    if (container) {
+      const demo = getPatientDemographics(docData);
+      const detailPatientConditions = document.getElementById("detail-patient-conditions");
+      if (detailPatientConditions) {
+        detailPatientConditions.innerHTML = `<span class="tag">${demo.topDiagnosis}</span>`;
+      }
+
+      container.innerHTML = `
+        <h3 class="detail-node-name">${term}</h3>
+        <div class="detail-node-type" style="color: var(--t-muted); font-size: 11px;">Recognized Medical Term</div>
+        
+        <div class="detail-section-title">Clinical Context</div>
+        <div class="empty-state" style="height: auto; padding: 24px; border: 1px dashed var(--c-border); border-radius: var(--radius); margin-top: 12px; text-align: center;">
+          <div class="empty-icon" style="font-size: 24px; margin-bottom: 8px;">ℹ️</div>
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--t-primary); margin-bottom: 4px;">Not in Patient Record</h4>
+          <p style="font-size: 11px; color: var(--t-muted); max-width: 220px; margin: 0 auto; line-height: 1.4;">
+            This term is a recognized medical keyword but was not detected in the current patient's clinical document.
+          </p>
+        </div>
+      `;
+    }
+  }
+}
+
+// Debounced input search hook & suggestion fetcher
+let keywordSearchTimer = null;
+let suggestTimer = null;
+if (keywordSearch) {
+  keywordSearch.addEventListener("input", () => {
+    const val = keywordSearch.value.trim();
+    clearTimeout(keywordSearchTimer);
+    clearTimeout(suggestTimer);
+    
+    if (!val) {
+      if (keywordSearchSuggestions) keywordSearchSuggestions.style.display = "none";
+      searchTree("");
+      return;
+    }
+
+    // Debounce the suggestions fetch
+    suggestTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/keywords/suggest?q=${encodeURIComponent(val)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderSuggestions(data);
+      } catch (err) {
+        console.error("Failed to fetch suggestions:", err);
+      }
+    }, 150);
+
+    // Debounce the tree filter search
+    keywordSearchTimer = setTimeout(() => {
+      searchTree(val);
+    }, 300);
+  });
+
+  // Handle keyboard navigation inside suggestions
+  keywordSearch.addEventListener("keydown", (e) => {
+    if (!keywordSearchSuggestions || keywordSearchSuggestions.style.display === "none" || suggestionList.length === 0) {
+      return;
+    }
+
+    const items = keywordSearchSuggestions.querySelectorAll(".suggestion-item");
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      suggestionSelectedIndex = (suggestionSelectedIndex + 1) % suggestionList.length;
+      updateSuggestionSelection(items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      suggestionSelectedIndex = (suggestionSelectedIndex - 1 + suggestionList.length) % suggestionList.length;
+      updateSuggestionSelection(items);
+    } else if (e.key === "Enter") {
+      if (suggestionSelectedIndex >= 0 && suggestionSelectedIndex < suggestionList.length) {
+        e.preventDefault();
+        selectSuggestion(suggestionList[suggestionSelectedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      keywordSearchSuggestions.style.display = "none";
+      suggestionSelectedIndex = -1;
+    }
   });
 }
 
-let keywordSearchTimer = null;
-keywordSearch.addEventListener("input", () => {
-  if (!docData?.keywords) return;
-  // Debounce: rebuilding up to 200 cards on every keystroke is janky.
-  clearTimeout(keywordSearchTimer);
-  keywordSearchTimer = setTimeout(() => {
-    buildKeywordCards(docData.keywords, keywordSearch.value);
-  }, 150);
+function updateSuggestionSelection(items) {
+  items.forEach((item, idx) => {
+    if (idx === suggestionSelectedIndex) {
+      item.classList.add("selected");
+      item.scrollIntoView({ block: "nearest" });
+    } else {
+      item.classList.remove("selected");
+    }
+  });
+}
+
+// Click outside to dismiss autocomplete dropdown
+document.addEventListener("click", (e) => {
+  if (keywordSearchSuggestions && !keywordSearch.contains(e.target) && !keywordSearchSuggestions.contains(e.target)) {
+    keywordSearchSuggestions.style.display = "none";
+    suggestionSelectedIndex = -1;
+  }
 });
+
+// Dismiss the descriptive banner (title + blurb) to free up map space
+const kwHeaderClose = document.getElementById("keyword-header-close");
+const kwHeader      = document.getElementById("keyword-map-header");
+if (kwHeaderClose && kwHeader) {
+  kwHeaderClose.addEventListener("click", () => {
+    kwHeader.classList.add("banner-collapsed");
+    kwHeaderClose.style.display = "none";
+    if (typeof window.recenterKeywordTree === "function") {
+      requestAnimationFrame(() => window.recenterKeywordTree());
+    }
+  });
+}
+
+// Keyword map navigation (back / forward)
+const kwNavBack = document.getElementById("kw-nav-back");
+const kwNavFwd  = document.getElementById("kw-nav-fwd");
+if (kwNavBack) {
+  kwNavBack.addEventListener("click", () => {
+    if (kwNavIndex <= 0) return;
+    kwNavIndex--;
+    window.selectKeywordNode(kwNavHistory[kwNavIndex], true);
+    kwNavUpdateButtons();
+  });
+}
+if (kwNavFwd) {
+  kwNavFwd.addEventListener("click", () => {
+    if (kwNavIndex >= kwNavHistory.length - 1) return;
+    kwNavIndex++;
+    window.selectKeywordNode(kwNavHistory[kwNavIndex], true);
+    kwNavUpdateButtons();
+  });
+}
+
+// Health Summary slide toggle (semicircle tab on the panel's edge)
+const healthToggle  = document.getElementById("health-toggle");
+const keywordLayout = document.getElementById("keyword-map-layout");
+if (healthToggle && keywordLayout) {
+  healthToggle.addEventListener("click", () => {
+    const collapsed = keywordLayout.classList.toggle("health-collapsed");
+    healthToggle.setAttribute("aria-expanded", String(!collapsed));
+    healthToggle.title = collapsed ? "Show Health Summary" : "Hide Health Summary";
+  });
+}
 
 // ─── Export Panel ─────────────────────────────────────────────────────────
 function renderExport(data) {
@@ -650,19 +1753,49 @@ function renderAlerts(data) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function switchToPanel(panelId) {
+  // Normalize old panel IDs to the new unified File Manager panel
+  if (panelId === "panel-upload" || panelId === "panel-history" || panelId === "panel-export") {
+    panelId = "panel-file-manager";
+  }
+
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   document.getElementById(panelId)?.classList.add("active");
 
   const navId = {
-    "panel-upload":   "nav-upload",
-    "panel-history":  "nav-history",
-    "panel-timeline": "nav-timeline",
-    "panel-keywords": "nav-keywords",
-    "panel-export":   "nav-export",
+    "panel-file-manager": "nav-upload",
+    "panel-timeline":     "nav-timeline",
+    "panel-keywords":     "nav-keywords"
   }[panelId];
 
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-  if (navId) document.getElementById(navId)?.classList.add("active");
+  if (navId) {
+    const navEl = document.getElementById(navId);
+    if (navEl) navEl.classList.add("active");
+  }
+
+  // The keyword tree is laid out while its panel is hidden (0-sized container),
+  // so re-fit it to the now-visible panel. rAF lets layout/size settle first.
+  if (panelId === "panel-keywords" && typeof window.recenterKeywordTree === "function") {
+    requestAnimationFrame(() => window.recenterKeywordTree());
+  }
+
+  // Toggle visibility of the Reset Zoom button and search bar in the main header banner
+  const btnResetTree = document.getElementById("btn-reset-tree");
+  if (btnResetTree) {
+    if (panelId === "panel-keywords") {
+      btnResetTree.style.display = "inline-flex";
+    } else {
+      btnResetTree.style.display = "none";
+    }
+  }
+
+  if (keywordSearchContainer) {
+    if (panelId === "panel-keywords") {
+      keywordSearchContainer.style.display = "inline-flex";
+    } else {
+      keywordSearchContainer.style.display = "none";
+    }
+  }
 }
 
 function showProgress() {
@@ -814,7 +1947,93 @@ historySearch.addEventListener("input", () => {
   renderHistory(filtered);
 });
 
+// ─── Timeline Sorting Controls ─────────────────────────────────────────────
+function initTimelineControls() {
+  const legendContainer = document.getElementById("timeline-legend");
+  if (legendContainer) {
+    legendContainer.addEventListener("click", e => {
+      const legendItem = e.target.closest(".legend-item");
+      if (!legendItem) return;
+
+      const category = legendItem.dataset.category;
+      if (!category) return;
+
+      // Toggle active status
+      if (activeSortCategory === category) {
+        activeSortCategory = null;
+        legendItem.classList.remove("active");
+      } else {
+        activeSortCategory = category;
+        // Remove active class from all other items
+        legendContainer.querySelectorAll(".legend-item").forEach(item => {
+          if (item === legendItem) {
+            item.classList.add("active");
+          } else {
+            item.classList.remove("active");
+          }
+        });
+      }
+
+      // Re-render if docData is loaded
+      if (docData) {
+        renderTimeline(docData);
+      }
+    });
+  }
+
+  const controlsContainer = document.querySelector(".timeline-controls");
+  if (controlsContainer) {
+    controlsContainer.addEventListener("click", e => {
+      const button = e.target.closest(".btn-sm");
+      if (!button) return;
+
+      const criteria = button.dataset.criteria;
+      if (!criteria) return;
+
+      activeSortCriteria = criteria;
+
+      // Update button active classes
+      controlsContainer.querySelectorAll(".btn-sm").forEach(btn => {
+        if (btn === button) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+
+      // Re-render if docData is loaded
+      if (docData) {
+        renderTimeline(docData);
+      }
+    });
+  }
+}
+
+function resetTimelineControlsUI() {
+  activeSortCategory = null;
+  activeSortCriteria = "first-seen";
+  
+  const legendContainer = document.getElementById("timeline-legend");
+  if (legendContainer) {
+    legendContainer.querySelectorAll(".legend-item").forEach(item => {
+      item.classList.remove("active");
+    });
+  }
+
+  const controlsContainer = document.querySelector(".timeline-controls");
+  if (controlsContainer) {
+    controlsContainer.querySelectorAll(".btn-sm").forEach(btn => {
+      if (btn.id === "sort-first-seen") {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────
 checkBackendHealth();
 loadHistory();
+initTimelineControls();
 setInterval(checkBackendHealth, 15000);

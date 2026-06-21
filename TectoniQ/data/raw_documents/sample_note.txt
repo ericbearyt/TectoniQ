@@ -1,0 +1,91 @@
+Patient Name: Jane Doe
+MRN: 100234
+Date of Birth: 03/15/1968
+Sex: Female
+Date of Visit: 06/10/2026
+Attending: Dr. Eric Nguyen, MD
+
+CHIEF COMPLAINT:
+Patient presents with shortness of breath and chest pain for the past 3 weeks.
+
+HISTORY OF PRESENT ILLNESS:
+Jane is a 58-year-old female with a history of hypertension and type 2 diabetes
+since 2014. She reports worsening dyspnea on exertion over the last 3 weeks
+and intermittent chest pain radiating to the left arm. She denies syncope.
+She has had 2 prior emergency department visits for similar complaints in 2022.
+
+PAST MEDICAL HISTORY:
+1. Hypertension (diagnosed 2012)
+2. Type 2 Diabetes Mellitus (T2DM) - since 2014
+3. Hyperlipidemia
+4. Anxiety - managed with medication since 2019
+
+PAST SURGICAL HISTORY:
+Appendectomy (2001)
+
+FAMILY HISTORY:
+Father: Coronary artery disease, deceased age 67
+Mother: Type 2 diabetes, hypertension
+
+SOCIAL HISTORY:
+Non-smoker. Social alcohol use. Employed as a teacher.
+
+ALLERGIES:
+Penicillin (rash)
+
+MEDICATIONS:
+Metformin 1000mg twice daily
+Lisinopril 10mg daily
+Atorvastatin 40mg at bedtime
+Aspirin 81mg daily
+Metoprolol 25mg twice daily
+
+REVIEW OF SYSTEMS:
+Positive: dyspnea, chest pain, fatigue, mild edema bilateral ankles.
+Negative: fever, cough, nausea, vomiting, diarrhea.
+
+PHYSICAL EXAM:
+General: Alert and oriented x3. Mild distress.
+Cardiovascular: Regular rate and rhythm. No murmurs.
+Respiratory: Bilateral basilar crackles.
+Extremities: 1+ pitting edema bilateral lower extremities.
+
+VITAL SIGNS:
+BP: 148/92 mmHg
+HR: 88 bpm
+RR: 18 breaths/min
+Temp: 98.6°F
+O2 Sat: 95%
+Wt: 82 kg
+Ht: 165 cm
+
+LABORATORY:
+BNP: 520 pg/mL (elevated)
+Troponin I: 0.04 ng/mL (normal)
+Creatinine: 1.2 mg/dL
+HbA1c: 7.8%
+LDL: 112 mg/dL
+
+IMAGING:
+Chest X-Ray: Cardiomegaly with pulmonary vascular congestion consistent
+with heart failure. No pleural effusion.
+
+ASSESSMENT:
+1. I50.9 - Heart failure, unspecified — new diagnosis, likely HFrEF
+2. I10 - Hypertension, poorly controlled
+3. E11.9 - Type 2 diabetes mellitus without complications
+4. E78.5 - Hyperlipidemia
+5. F41.1 - Generalized anxiety disorder
+
+PLAN:
+1. Start furosemide 40mg daily for fluid overload.
+2. Increase lisinopril to 20mg daily.
+3. Echocardiogram ordered to assess ejection fraction.
+4. EKG in clinic.
+5. Refer to cardiology for heart failure management.
+6. Continue current diabetes and lipid management.
+7. Follow up in 2 weeks.
+
+FOLLOW UP:
+Patient instructed to weigh daily and call if weight gain > 2 lbs in 24 hours
+or > 5 lbs in one week. Return to clinic in 14 days.

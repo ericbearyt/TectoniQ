@@ -46,3 +46,23 @@ def tokenize(text: str) -> list[str]:
 def normalize(text: str) -> str:
     """Lowercase + punctuation-to-space, no filtering. Used for multi-word substring scans."""
     return text.lower().translate(_PUNCT_TRANSLATOR)
+
+
+def extract_pdf_pages(pdf_bytes: bytes) -> list[dict]:
+    """
+    Extract text page-by-page using PyMuPDF (fitz), which is ~10-50x faster than
+    pdfminer — the single biggest win for large documents (e.g. a 1,600-page
+    record). Single source of truth so Worker 1 and Worker 4 stay in lockstep.
+
+    Returns [{ "page": int (1-indexed), "text": str }].
+    """
+    import fitz  # PyMuPDF
+
+    pages = []
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        for i, page in enumerate(doc, start=1):
+            pages.append({"page": i, "text": page.get_text("text")})
+    finally:
+        doc.close()
+    return pages
