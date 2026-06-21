@@ -36,7 +36,9 @@ const timelineContainer = document.getElementById("timeline-container");
 const termDrawer       = document.getElementById("term-drawer");
 const drawerContent    = document.getElementById("drawer-content");
 const drawerClose      = document.getElementById("drawer-close");
-const keywordSearch    = document.getElementById("keyword-tree-search");
+const keywordSearch          = document.getElementById("keyword-tree-search");
+const keywordSearchContainer = document.getElementById("keyword-search-container");
+const keywordSearchSuggestions = document.getElementById("keyword-search-suggestions");
 const exportPreviewCode = document.getElementById("export-preview-code");
 const downloadBtn      = document.getElementById("download-btn");
 const exportMeta       = document.getElementById("export-meta");
@@ -584,7 +586,46 @@ document.addEventListener("click", e => {
 let treeRoot = null;
 let activeDetailNode = null;
 
+// Navigation history for the keyword map (undo / forward)
+let kwNavHistory = [];
+let kwNavIndex = -1;
+let kwNavSkipPush = false;
+
+function kwNavPush(nodeId) {
+  if (kwNavSkipPush) return;
+  // Truncate forward stack on new navigation
+  kwNavHistory = kwNavHistory.slice(0, kwNavIndex + 1);
+  kwNavHistory.push(nodeId);
+  kwNavIndex = kwNavHistory.length - 1;
+  kwNavUpdateButtons();
+}
+
+function kwNavUpdateButtons() {
+  const backBtn = document.getElementById("kw-nav-back");
+  const fwdBtn  = document.getElementById("kw-nav-fwd");
+  if (backBtn) backBtn.disabled = kwNavIndex <= 0;
+  if (fwdBtn)  fwdBtn.disabled  = kwNavIndex >= kwNavHistory.length - 1;
+}
+
+// Traverse tree including collapsed _children
+function findInTree(root, predicate) {
+  if (predicate(root)) return root;
+  const lists = [root.children, root._children];
+  for (const list of lists) {
+    if (!list) continue;
+    for (const child of list) {
+      const found = findInTree(child, predicate);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function renderKeywords(data) {
+  kwNavHistory = [];
+  kwNavIndex = -1;
+  kwNavUpdateButtons();
+
   if (!data.keywords || Object.keys(data.keywords).length === 0) {
     const wrap = document.getElementById("keyword-tree-svg-wrap");
     if (wrap) wrap.innerHTML = `<div class="empty-state">No keywords extracted.</div>`;
@@ -957,6 +998,7 @@ function renderKeywordTree(keywords) {
 // Adapt details side panel to match clicked node depth
 function showNodeDetails(node) {
   activeDetailNode = node;
+  if (node.id) kwNavPush(node.id);
   const container = document.getElementById("keyword-instances-container");
   if (!container) return;
   
@@ -1159,9 +1201,10 @@ function showNodeDetails(node) {
 }
 
 // Global hook to trigger tree keyword node selections programmatically
-window.selectKeywordNode = function(nodeId) {
+window.selectKeywordNode = function(nodeId, skipHistory) {
   if (!treeRoot) return;
-  const match = treeRoot.descendants().find(d => d.id === nodeId);
+  const match = findInTree(treeRoot, d => d.id === nodeId);
+  if (skipHistory) kwNavSkipPush = true;
   if (match) {
     document.querySelectorAll(".tree-node-content").forEach(el => {
       el.classList.remove("active-node");
@@ -1188,6 +1231,7 @@ window.selectKeywordNode = function(nodeId) {
       scrollNodeIntoView(match);
     }, 200);
   }
+  kwNavSkipPush = false;
 };
 
 // Scroll SVG tree view to match selected node
@@ -1213,9 +1257,9 @@ function scrollNodeIntoView(d) {
 // Global hook to follow correlations
 window.selectCorrelationTerm = function(termName) {
   if (!treeRoot) return;
-  const match = treeRoot.descendants().find(d => d.depth === 3 && d.data.name.toLowerCase() === termName.toLowerCase());
+  const match = findInTree(treeRoot, d => d.depth === 3 && d.data.name.toLowerCase() === termName.toLowerCase());
   if (match) {
-    selectKeywordNode(match.id);
+    window.selectKeywordNode(match.id);
   }
 };
 
@@ -1352,38 +1396,183 @@ function searchTree(query) {
   }, 200);
 }
 
-// Debounced input search hook
-let keywordSearchTimer = null;
-keywordSearch.addEventListener("input", () => {
-  if (!docData?.keywords) return;
-  clearTimeout(keywordSearchTimer);
-  keywordSearchTimer = setTimeout(() => {
-    searchTree(keywordSearch.value);
-  }, 200);
-});
+// ─── Search Suggestions Autocomplete logic ──────────────────────────────────
+let suggestionList = [];
+let suggestionSelectedIndex = -1;
 
-// Magnifier toggle: collapse the map search into a clickable icon
-const kwSearch       = document.getElementById("kw-search");
-const kwSearchToggle = document.getElementById("kw-search-toggle");
-if (kwSearch && kwSearchToggle) {
-  kwSearchToggle.addEventListener("click", () => {
-    const expanded = kwSearch.classList.toggle("expanded");
-    kwSearchToggle.setAttribute("aria-expanded", String(expanded));
-    if (expanded) {
-      keywordSearch.focus();
-    } else {
-      keywordSearch.value = "";
-      searchTree("");
+function renderSuggestions(suggestions) {
+  suggestionList = suggestions;
+  suggestionSelectedIndex = -1;
+  if (!keywordSearchSuggestions) return;
+  keywordSearchSuggestions.innerHTML = "";
+
+  if (suggestions.length === 0) {
+    const emptyEl = document.createElement("div");
+    emptyEl.className = "suggestion-empty";
+    emptyEl.textContent = "No matching medical terms found";
+    keywordSearchSuggestions.appendChild(emptyEl);
+    keywordSearchSuggestions.style.display = "block";
+    return;
+  }
+
+  suggestions.forEach((item, idx) => {
+    const itemEl = document.createElement("div");
+    itemEl.className = "suggestion-item";
+    itemEl.dataset.index = idx;
+    itemEl.dataset.term = item;
+
+    // Check if the suggestion is in the active patient document
+    const inDoc = docData?.keywords && docData.keywords[item] !== undefined;
+    if (inDoc) {
+      itemEl.classList.add("in-document");
     }
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = item;
+
+    const metaSpan = document.createElement("span");
+    metaSpan.className = "suggestion-meta";
+    metaSpan.textContent = inDoc ? "In Document" : "Medical Term";
+
+    itemEl.appendChild(nameSpan);
+    itemEl.appendChild(metaSpan);
+
+    itemEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectSuggestion(item);
+    });
+
+    keywordSearchSuggestions.appendChild(itemEl);
   });
-  // Collapse when the field is left empty
-  keywordSearch.addEventListener("blur", () => {
-    if (!keywordSearch.value.trim()) {
-      kwSearch.classList.remove("expanded");
-      kwSearchToggle.setAttribute("aria-expanded", "false");
+
+  keywordSearchSuggestions.style.display = "block";
+}
+
+function selectSuggestion(term) {
+  if (keywordSearch) keywordSearch.value = term;
+  if (keywordSearchSuggestions) keywordSearchSuggestions.style.display = "none";
+  suggestionList = [];
+  suggestionSelectedIndex = -1;
+
+  // 1. Run D3 searchTree to highlight in the tree
+  searchTree(term);
+
+  // 2. Check if the term is in the active patient document
+  if (docData?.keywords && docData.keywords[term]) {
+    // If it's in the document, find the corresponding node in the D3 tree and select it
+    if (treeRoot) {
+      const match = findInTree(treeRoot, d => d.depth === 3 && d.data.name.toLowerCase() === term.toLowerCase());
+      if (match) {
+        window.selectKeywordNode(match.id);
+      }
+    }
+  } else {
+    // If it's NOT in the document, render a custom details card in `#keyword-instances-container`
+    const container = document.getElementById("keyword-instances-container");
+    if (container) {
+      const demo = getPatientDemographics(docData);
+      const detailPatientConditions = document.getElementById("detail-patient-conditions");
+      if (detailPatientConditions) {
+        detailPatientConditions.innerHTML = `<span class="tag">${demo.topDiagnosis}</span>`;
+      }
+
+      container.innerHTML = `
+        <h3 class="detail-node-name">${term}</h3>
+        <div class="detail-node-type" style="color: var(--t-muted); font-size: 11px;">Recognized Medical Term</div>
+        
+        <div class="detail-section-title">Clinical Context</div>
+        <div class="empty-state" style="height: auto; padding: 24px; border: 1px dashed var(--c-border); border-radius: var(--radius); margin-top: 12px; text-align: center;">
+          <div class="empty-icon" style="font-size: 24px; margin-bottom: 8px;">ℹ️</div>
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--t-primary); margin-bottom: 4px;">Not in Patient Record</h4>
+          <p style="font-size: 11px; color: var(--t-muted); max-width: 220px; margin: 0 auto; line-height: 1.4;">
+            This term is a recognized medical keyword but was not detected in the current patient's clinical document.
+          </p>
+        </div>
+      `;
+    }
+  }
+}
+
+// Debounced input search hook & suggestion fetcher
+let keywordSearchTimer = null;
+let suggestTimer = null;
+if (keywordSearch) {
+  keywordSearch.addEventListener("input", () => {
+    const val = keywordSearch.value.trim();
+    clearTimeout(keywordSearchTimer);
+    clearTimeout(suggestTimer);
+    
+    if (!val) {
+      if (keywordSearchSuggestions) keywordSearchSuggestions.style.display = "none";
+      searchTree("");
+      return;
+    }
+
+    // Debounce the suggestions fetch
+    suggestTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/keywords/suggest?q=${encodeURIComponent(val)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderSuggestions(data);
+      } catch (err) {
+        console.error("Failed to fetch suggestions:", err);
+      }
+    }, 150);
+
+    // Debounce the tree filter search
+    keywordSearchTimer = setTimeout(() => {
+      searchTree(val);
+    }, 300);
+  });
+
+  // Handle keyboard navigation inside suggestions
+  keywordSearch.addEventListener("keydown", (e) => {
+    if (!keywordSearchSuggestions || keywordSearchSuggestions.style.display === "none" || suggestionList.length === 0) {
+      return;
+    }
+
+    const items = keywordSearchSuggestions.querySelectorAll(".suggestion-item");
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      suggestionSelectedIndex = (suggestionSelectedIndex + 1) % suggestionList.length;
+      updateSuggestionSelection(items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      suggestionSelectedIndex = (suggestionSelectedIndex - 1 + suggestionList.length) % suggestionList.length;
+      updateSuggestionSelection(items);
+    } else if (e.key === "Enter") {
+      if (suggestionSelectedIndex >= 0 && suggestionSelectedIndex < suggestionList.length) {
+        e.preventDefault();
+        selectSuggestion(suggestionList[suggestionSelectedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      keywordSearchSuggestions.style.display = "none";
+      suggestionSelectedIndex = -1;
     }
   });
 }
+
+function updateSuggestionSelection(items) {
+  items.forEach((item, idx) => {
+    if (idx === suggestionSelectedIndex) {
+      item.classList.add("selected");
+      item.scrollIntoView({ block: "nearest" });
+    } else {
+      item.classList.remove("selected");
+    }
+  });
+}
+
+// Click outside to dismiss autocomplete dropdown
+document.addEventListener("click", (e) => {
+  if (keywordSearchSuggestions && !keywordSearch.contains(e.target) && !keywordSearchSuggestions.contains(e.target)) {
+    keywordSearchSuggestions.style.display = "none";
+    suggestionSelectedIndex = -1;
+  }
+});
 
 // Dismiss the descriptive banner (title + blurb) to free up map space
 const kwHeaderClose = document.getElementById("keyword-header-close");
@@ -1395,6 +1584,26 @@ if (kwHeaderClose && kwHeader) {
     if (typeof window.recenterKeywordTree === "function") {
       requestAnimationFrame(() => window.recenterKeywordTree());
     }
+  });
+}
+
+// Keyword map navigation (back / forward)
+const kwNavBack = document.getElementById("kw-nav-back");
+const kwNavFwd  = document.getElementById("kw-nav-fwd");
+if (kwNavBack) {
+  kwNavBack.addEventListener("click", () => {
+    if (kwNavIndex <= 0) return;
+    kwNavIndex--;
+    window.selectKeywordNode(kwNavHistory[kwNavIndex], true);
+    kwNavUpdateButtons();
+  });
+}
+if (kwNavFwd) {
+  kwNavFwd.addEventListener("click", () => {
+    if (kwNavIndex >= kwNavHistory.length - 1) return;
+    kwNavIndex++;
+    window.selectKeywordNode(kwNavHistory[kwNavIndex], true);
+    kwNavUpdateButtons();
   });
 }
 
@@ -1568,6 +1777,24 @@ function switchToPanel(panelId) {
   // so re-fit it to the now-visible panel. rAF lets layout/size settle first.
   if (panelId === "panel-keywords" && typeof window.recenterKeywordTree === "function") {
     requestAnimationFrame(() => window.recenterKeywordTree());
+  }
+
+  // Toggle visibility of the Reset Zoom button and search bar in the main header banner
+  const btnResetTree = document.getElementById("btn-reset-tree");
+  if (btnResetTree) {
+    if (panelId === "panel-keywords") {
+      btnResetTree.style.display = "inline-flex";
+    } else {
+      btnResetTree.style.display = "none";
+    }
+  }
+
+  if (keywordSearchContainer) {
+    if (panelId === "panel-keywords") {
+      keywordSearchContainer.style.display = "inline-flex";
+    } else {
+      keywordSearchContainer.style.display = "none";
+    }
   }
 }
 

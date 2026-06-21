@@ -326,6 +326,43 @@ def get_history_detail(patient_id):
         return jsonify({"error": f"Failed to read history data: {str(e)}"}), 500
 
 
+@app.get("/api/keywords/suggest")
+def suggest_keywords():
+    """
+    Search through the preloaded MEDICAL_WORDS database and return up to 20 autocomplete suggestions.
+    Matches starting with the query are returned first, followed by containing matches.
+    """
+    query = request.args.get("q", "").strip().lower()
+    if not query:
+        return jsonify([])
+
+    starts_with = []
+    contains = []
+
+    for word in worker7_filter.MEDICAL_WORDS:
+        if word.startswith(query):
+            starts_with.append(word)
+        elif query in word:
+            contains.append(word)
+
+    # Sort results primarily by length (shorter first), then alphabetically
+    starts_with.sort(key=lambda x: (len(x), x))
+    contains.sort(key=lambda x: (len(x), x))
+
+    # Combine lists and deduplicate while keeping order
+    results = starts_with + contains
+    seen = set()
+    deduped = []
+    for r in results:
+        if r not in seen:
+            seen.add(r)
+            deduped.append(r)
+            if len(deduped) >= 20:
+                break
+
+    return jsonify(deduped), 200
+
+
 def _build_output(w6: dict, w3: dict) -> dict:
     """
     Combine Worker outputs into the final structured document model.

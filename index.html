@@ -54,7 +54,9 @@
     <!-- TOP STATS BANNER -->
     <header class="top-banner" id="top-banner">
       <div class="banner-left">
-        <h1 class="banner-title">Clinical Data Timeline Processor</h1>
+        <div class="banner-title-row">
+          <h1 class="banner-title">Clinical Data Timeline Processor</h1>
+        </div>
         <p class="banner-subtitle" id="banner-subtitle">Upload a PDF to begin analysis</p>
       </div>
       <div class="banner-right">
@@ -234,14 +236,22 @@
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
                 </button>
-                <input type="search" class="keyword-search kw-search-input" id="keyword-tree-search" placeholder="Filter terms in map..." />
+                <div class="keyword-search-container" id="keyword-search-container">
+                  <input type="search" class="keyword-search kw-search-input" id="keyword-tree-search" placeholder="Filter terms in map..." autocomplete="off" />
+                  <div class="search-suggestions-dropdown" id="keyword-search-suggestions" style="display: none;"></div>
+                </div>
               </div>
-              <button class="btn btn-ghost" id="btn-reset-tree">Reset Zoom</button>
+              <button class="btn btn-ghost btn-sm" id="btn-reset-tree">Reset Zoom</button>
             </div>
           </div>
           <!-- Tree SVG wrapper -->
           <div id="keyword-tree-svg-wrap">
             <div class="empty-state" style="height: 100%; border: none;">Upload a patient document to render the keyword map</div>
+          </div>
+          <!-- Floating Navigation Controls in bottom-left corner -->
+          <div class="kw-nav-controls">
+            <button class="btn btn-ghost btn-sm kw-nav-btn" id="kw-nav-back" disabled title="Go back" aria-label="Navigate back">&#8592;</button>
+            <button class="btn btn-ghost btn-sm kw-nav-btn" id="kw-nav-fwd" disabled title="Go forward" aria-label="Navigate forward">&#8594;</button>
           </div>
         </div>
 
