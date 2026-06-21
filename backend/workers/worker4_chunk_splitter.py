@@ -30,8 +30,7 @@ import io
 import re
 from typing import Callable, Optional
 
-from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTTextContainer
+from ._text import extract_pdf_pages
 
 # ---------------------------------------------------------------------------
 # PyPDF2 for splitting the PDF into sub-documents
@@ -76,19 +75,12 @@ def _scan_header_boundaries(pdf_bytes: bytes) -> list[dict]:
     sorted by page number.
     """
     boundaries = []
-    pdf_file = io.BytesIO(pdf_bytes)
 
-    for page_num, page_layout in enumerate(extract_pages(pdf_file), start=1):
-        page_text_parts = []
-        for element in page_layout:
-            if isinstance(element, LTTextContainer):
-                page_text_parts.append(element.get_text())
-        page_text = "\n".join(page_text_parts)
-
-        for line in page_text.splitlines():
+    for page in extract_pdf_pages(pdf_bytes):
+        for line in page["text"].splitlines():
             if _is_header(line):
                 boundaries.append({
-                    "page": page_num,
+                    "page": page["page"],
                     "header": line.strip(),
                 })
                 break  # Only record the first header per page
@@ -139,11 +131,8 @@ def run(pdf_bytes: bytes) -> dict:
     dict
         { chunks, total_chunks, total_pages }
     """
-    # Count total pages
-    reader_for_count = io.BytesIO(pdf_bytes)
-    total_pages = 0
-    for _ in extract_pages(reader_for_count):
-        total_pages += 1
+    # Count total pages (PyPDF2 reader is cheap and already a dependency)
+    total_pages = len(PdfReader(io.BytesIO(pdf_bytes)).pages) if _PYPDF2_AVAILABLE else 0
 
     if total_pages == 0:
         return {"chunks": [], "total_chunks": 0, "total_pages": 0}

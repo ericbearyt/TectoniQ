@@ -1,6 +1,6 @@
 # TectoniQ Worker Pipeline — Reference
 
-This document describes the six workers that form the backend processing pipeline. Workers run **sequentially**: Worker 4 → Worker 5 (which runs Worker 1 per chunk) → Worker 6 → Worker 2 → Worker 3.
+This document describes the seven workers that form the backend processing pipeline. Workers run **sequentially**: Worker 4 → Worker 5 (which runs Worker 1 per chunk) → Worker 6 → Worker 7 → Worker 2 → Worker 3.
 
 ---
 
@@ -34,6 +34,14 @@ PDF bytes
 │  (e.g., "Progress 1: Social History")   │
 └────────────────────┬─────────────────────┘
                      │  labeled_sections[] + section_outline[]
+                     ▼
+┌──────────────────────────────────────────┐
+│  Worker 7 — Clinical Term Filter        │
+│  File: backend/workers/worker7_filter.py │
+│  Filters term frequency list using      │
+│  local database + noise blacklist       │
+└────────────────────┬─────────────────────┘
+                     │  filtered term_frequency{}
                      ▼
 ┌──────────────────────────────────────────┐
 │  Worker 2 — 1D Timeline Mapper          │
@@ -291,6 +299,42 @@ pdf_bytes: bytes  # raw PDF file content
 
 ---
 
+## Worker 7 — Clinical Term Filter
+
+**File:** `backend/workers/worker7_filter.py`
+
+### What it does
+
+1. Accepts the output from Worker 6 (enriched sections + global term frequency list)
+2. Filters out terms from `term_frequency` that:
+   - Do not appear in the 96,000+ local medical term database (`data/medical_terminology.json`)
+   - Match a curated blacklist of common non-clinical meta terms (e.g., `"doctor"`, `"hospital"`, `"patient"`, `"page"`, `"notes"`, `"cornell"`)
+   - Are less than 3 characters long or are entirely numeric
+3. Returns the enriched document payload with the cleaned `term_frequency` dictionary
+
+### Input
+
+```python
+worker6_output: dict  # output of Worker 6
+```
+
+### Output Contract
+
+```json
+{
+  "sections": [ "..." ],
+  "term_frequency": {
+    "hypertension": 4,
+    "metformin": 2
+    // noise terms like "cornell" are filtered out here
+  },
+  "page_count": 12,
+  "section_outline": [ "..." ]
+}
+```
+
+---
+
 ## Worker 2 — 1D Timeline Mapper
 
 **File:** `backend/workers/worker2_timeline.py`
@@ -417,9 +461,9 @@ If `GEMINI_API_KEY` is not set or `google-generativeai` is not installed:
 
 ## Extending the Pipeline
 
-To add a Worker 7 (e.g., a FHIR exporter or deduplication engine):
+To add a Worker 8 (e.g., a FHIR exporter or deduplication engine):
 
-1. Create `backend/workers/worker7_yourname.py`
+1. Create `backend/workers/worker8_yourname.py`
 2. Implement a `run(previous_output: dict) -> dict` function
 3. Import and call it in `backend/app.py` in the appropriate pipeline position
 4. Document it here in `README_WORKERS.md`
@@ -433,7 +477,7 @@ To add a Worker 7 (e.g., a FHIR exporter or deduplication engine):
 import json
 from workers import (
     worker4_chunk_splitter, worker5_progress_tracker,
-    worker6_section_labeler, worker2_timeline, worker3_gemini_ner
+    worker6_section_labeler, worker7_filter, worker2_timeline, worker3_gemini_ner
 )
 
 with open("test.pdf", "rb") as f:
@@ -442,8 +486,9 @@ with open("test.pdf", "rb") as f:
 w4 = worker4_chunk_splitter.run(pdf_bytes)
 w5 = worker5_progress_tracker.run(w4)        # runs Worker 1 per chunk internally
 w6 = worker6_section_labeler.run(w5)
-w2 = worker2_timeline.run(w6)
-w3 = worker3_gemini_ner.run(w6, w2)
+w7 = worker7_filter.run(w6)
+w2 = worker2_timeline.run(w7)
+w3 = worker3_gemini_ner.run(w6, w2)          # Note: uses w6 (or w7) and timeline w2
 
 print(json.dumps(w3, indent=2))
 ```

@@ -50,7 +50,66 @@ except ImportError:
     _GENAI_AVAILABLE = False
 
 # How many top terms to send to Gemini (cost/latency tradeoff)
-TOP_N_TERMS = 60
+TOP_N_TERMS = 200
+
+# Locate the medical terminology database in workspace root
+_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "data", "medical_terminology.json")
+)
+
+DICT_CATEGORY_MAP = {
+    "Medication": "medication",
+    "Procedure": "procedure",
+    "Condition": "diagnosis",
+    "Symptom": "diagnosis",
+    "Allergy": "diagnosis",
+    "Finding": "diagnosis",
+    "MedicalTerm": "other"  # Use heuristic mapping for MedicalTerm
+}
+
+def _heuristic_classify(term: str) -> str:
+    term_lower = term.lower()
+    
+    # Medications
+    med_suffixes = (
+        "olol", "pril", "stat", "cillin", "mycin", "pam", "lam", 
+        "mab", "nib", "vir", "oxacin", "artan", "osin", "idine",
+        "phine", "setron", "triptan", "afil", "asone", "onide",
+        "ine", "one", "ide", "ole", "ate", "fen", "zine", "tine", "cin"
+    )
+    if term_lower.endswith(med_suffixes) or any(x in term_lower for x in ("sodium", "hydrochloride", "sulfate", "phosphate", "acid")):
+        return "medication"
+        
+    # Procedures
+    proc_suffixes = ("tomy", "stomy", "plasty", "ectomy", "scopy", "graphy", "gram", "centesis", "pexy")
+    if term_lower.endswith(proc_suffixes) or any(x in term_lower for x in ("biopsy", "resection", "incision", "drainage", "repair", "bypass", "transplant", "ultrasound", "scan", "ekg", "ecg", "mri", "xray", "x-ray")):
+        return "procedure"
+        
+    # Diagnoses
+    diag_suffixes = ("itis", "opathy", "osis", "megaly", "penia", "philia", "emia", "uria", "algia", "oma", "syndrome", "spasm")
+    if term_lower.endswith(diag_suffixes) or any(x in term_lower for x in ("failure", "disease", "disorder", "infection", "cancer", "tumor", "infarction", "fracture", "pain", "fever", "cough", "dyspnea", "edema", "syncope", "arrhythmia")):
+        return "diagnosis"
+        
+    # Labs (Labs / biomarkers)
+    lab_keywords = ("level", "count", "saturation", "percentage", "concentration", "clearance", "fraction", "ratio", "pressure", "rate")
+    if any(x in term_lower for x in lab_keywords) or term_lower in ("bnp", "troponin", "creatinine", "hba1c", "ldl", "hdl", "wbc", "rbc", "platelets", "hb", "hct", "bun", "sodium", "potassium", "chloride", "calcium"):
+        return "biomarker"
+        
+    return "other"
+
+_MEDICAL_TERMINOLOGY = {}
+
+def _load_terminology():
+    global _MEDICAL_TERMINOLOGY
+    try:
+        with open(_DB_PATH, "r", encoding="utf-8") as f:
+            _MEDICAL_TERMINOLOGY = json.load(f)
+    except Exception as e:
+        print(f"[Worker 3] Warning: Could not load medical database from {_DB_PATH}: {e}")
+        _MEDICAL_TERMINOLOGY = {}
+
+# Load database on import
+_load_terminology()
 
 VALID_CATEGORIES = {
     "diagnosis", "medication", "procedure",
@@ -124,6 +183,72 @@ def _get_annotations_from_gemini(terms: list[str], api_key: str) -> dict:
         return {}
 
 
+GEMINI_ADJUDICATION_CAP = int(os.getenv("GEMINI_ADJUDICATION_CAP", "40"))
+
+
+def run_adjudication(worker7_output: dict) -> dict:
+    """
+    Concept-keyed adjudication mode (used when Worker 7 ran the vocabulary
+    linker). Unlike run(), this does NOT re-categorise everything — confident,
+    TUI-mapped concepts keep their category. Gemini only adjudicates the
+    *ambiguous* subset (needs_adjudication=True), capped at
+    GEMINI_ADJUDICATION_CAP by frequency, in a single batched call (Q7-C:
+    tiered + capped + batched). This keeps the allowlist as the primary gate and
+    bounds Gemini cost/latency.
+
+    Spans that NER tagged but the KB couldn't link (#4) were already dropped by
+    the linker's allowlist. (Upgrade path: swap in a typed NER model such as
+    en_ner_bc5cdr_md to let a clinical label vouch for unlinked spans.)
+    """
+    timeline = worker7_output["timeline"]
+    api_key = os.getenv("GEMINI_API_KEY", "")
+
+    # Confident concepts: trust the TUI mapping.
+    for entry in timeline:
+        if not entry.get("needs_adjudication"):
+            entry["ner_confidence"] = "linked"
+            if entry.get("status") == "unknown" and entry["category"] != "other":
+                entry["status"] = "active"
+
+    # Ambiguous subset, capped by frequency.
+    ambiguous = [e for e in timeline if e.get("needs_adjudication")]
+    ambiguous.sort(key=lambda e: e.get("count", 0), reverse=True)
+    queue = ambiguous[:GEMINI_ADJUDICATION_CAP]
+
+    annotations: dict = {}
+    if api_key and _GENAI_AVAILABLE and queue:
+        annotations = _get_annotations_from_gemini([e["term"] for e in queue], api_key)
+
+    adjudicated = 0
+    for entry in queue:
+        ann = annotations.get(entry["term"].lower())
+        if ann:
+            entry["category"] = ann["category"]
+            entry["status"] = ann["status"]
+            entry["ner_confidence"] = ann["ner_confidence"]
+            adjudicated += 1
+        else:
+            # No verdict: keep the TUI guess, mark it unreviewed.
+            entry["ner_confidence"] = "unreviewed"
+
+    category_counts: dict[str, int] = {}
+    for entry in timeline:
+        category_counts[entry["category"]] = category_counts.get(entry["category"], 0) + 1
+
+    return {
+        "timeline": timeline,
+        "ner_summary": {
+            "total_terms": len(timeline),
+            "reviewed_terms": adjudicated,
+            "adjudication_queue": len(queue),
+            "ambiguous_total": len(ambiguous),
+            "categories": category_counts,
+            "gemini_available": bool(api_key and _GENAI_AVAILABLE),
+            "mode": "linker_adjudication",
+        },
+    }
+
+
 def run(worker1_output: dict, worker2_output: dict) -> dict:
     """
     Main entry point for Worker 3.
@@ -170,10 +295,17 @@ def run(worker1_output: dict, worker2_output: dict) -> dict:
             category_counts[ann["category"]] = category_counts.get(ann["category"], 0) + 1
             reviewed += 1
         else:
-            # Fallback tags
-            entry["category"] = "other"
+            # Fallback tags using the local dictionary and suffix heuristics
+            dict_cat = _MEDICAL_TERMINOLOGY.get(term_lower, "other")
+            if dict_cat == "MedicalTerm":
+                mapped_cat = _heuristic_classify(term_lower)
+            else:
+                mapped_cat = DICT_CATEGORY_MAP.get(dict_cat, "other")
+            
+            entry["category"] = mapped_cat
             entry["status"] = "unknown"
             entry["ner_confidence"] = "unreviewed"
+            category_counts[mapped_cat] = category_counts.get(mapped_cat, 0) + 1
 
     ner_summary = {
         "total_terms": len(timeline),

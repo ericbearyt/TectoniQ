@@ -18,6 +18,8 @@ import os
 import re
 import json
 import uuid
+import queue
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from flask import Flask, request, jsonify, Response
@@ -25,7 +27,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 from workers import worker1_frequency, worker2_timeline, worker3_gemini_ner
-from workers import worker4_chunk_splitter, worker5_progress_tracker, worker6_section_labeler
+from workers import worker4_chunk_splitter, worker5_progress_tracker, worker6_section_labeler, worker7_filter
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -99,18 +101,33 @@ def _run_pipeline(pdf_bytes: bytes, progress_callback=None) -> dict:
     w6 = worker6_section_labeler.run(w5)
     print(f"[Worker 6] Done — {len(w6.get('section_outline', []))} outline entries")
 
-    # ── Worker 2: Map terms onto 1D timeline ─────────────────────────────
-    print("[Worker 2] Building timeline…")
-    w2 = worker2_timeline.run(w6)
-    print(f"[Worker 2] Done — {len(w2['timeline'])} timeline entries")
+    # ── Worker 7: Filter / vocabulary-link clinical terms ────────────────
+    print("[Worker 7] Filtering keywords…")
+    w7 = worker7_filter.run(w6)
 
-    # ── Worker 3: Gemini semantic NER ────────────────────────────────────
-    print("[Worker 3] Running Gemini NER…")
-    w3 = worker3_gemini_ner.run(w6, w2)
-    print(f"[Worker 3] Done — {w3['ner_summary']['reviewed_terms']} terms reviewed by Gemini")
+    if w7.get("linker_used"):
+        # Concept-keyed path: Worker 7 already grouped spans by CUI into a
+        # timeline, so Worker 2 (string search) is bypassed. Worker 3 only
+        # adjudicates the ambiguous, capped subset.
+        print(f"[Worker 7] Linker on — {len(w7['timeline'])} concepts")
+        print("[Worker 3] Adjudicating ambiguous concepts…")
+        w3 = worker3_gemini_ner.run_adjudication(w7)
+        print(f"[Worker 3] Done — {w3['ner_summary']['reviewed_terms']} adjudicated")
+        output = _build_output(w7, w3)
+    else:
+        print(f"[Worker 7] Done — {len(w7['term_frequency'])} unique medical terms remaining")
+        # ── Worker 2: Map terms onto 1D timeline ─────────────────────────
+        print("[Worker 2] Building timeline…")
+        w2 = worker2_timeline.run(w7)
+        print(f"[Worker 2] Done — {len(w2['timeline'])} timeline entries")
 
-    # ── Build final structured output ────────────────────────────────────
-    output = _build_output(w6, w3)
+        # ── Worker 3: Gemini semantic NER ────────────────────────────────
+        print("[Worker 3] Running Gemini NER…")
+        w3 = worker3_gemini_ner.run(w6, w2)
+        print(f"[Worker 3] Done — {w3['ner_summary']['reviewed_terms']} terms reviewed by Gemini")
+
+        # ── Build final structured output ────────────────────────────────
+        output = _build_output(w6, w3)
 
     # Extract patient name
     patient_name = "Unknown Patient"
@@ -170,80 +187,90 @@ def parse_document_stream():
         return error
 
     def generate():
-        try:
-            def progress_cb(event_data):
-                """Called by Worker 5 after each chunk."""
-                line = json.dumps(event_data, ensure_ascii=False)
-                return f"data: {line}\n\n"
+        # The pipeline runs in a worker thread and pushes events onto a queue;
+        # this generator drains the queue and yields SSE lines. On a long link
+        # (e.g. a 1,600-page record) the queue stays empty for stretches, so we
+        # emit heartbeat comments to keep the connection alive past proxy/browser
+        # idle timeouts. link_progress events give live movement during linking.
+        events: "queue.Queue" = queue.Queue()
+        SENTINEL = object()
 
-            # Collect progress events to yield
-            progress_events = []
+        def emit(ev):
+            events.put(ev)
 
-            def collect_progress(event_data):
-                progress_events.append(event_data)
+        def pipeline():
+            try:
+                emit({"event": "pipeline_stage", "stage": "worker4", "status": "processing"})
+                w4 = worker4_chunk_splitter.run(pdf_bytes)
+                emit({"event": "pipeline_stage", "stage": "worker4", "status": "done",
+                      "total_chunks": w4["total_chunks"], "total_pages": w4["total_pages"]})
 
-            # ── Worker 4 ─────────────────────────────────────────────────
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker4', 'status': 'processing'})}\n\n"
-            w4 = worker4_chunk_splitter.run(pdf_bytes)
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker4', 'status': 'done', 'total_chunks': w4['total_chunks'], 'total_pages': w4['total_pages']})}\n\n"
+                emit({"event": "pipeline_stage", "stage": "worker5", "status": "processing"})
+                # Worker 5 chunk progress flows live through the same queue.
+                w5 = worker5_progress_tracker.run(w4, progress_callback=emit)
+                emit({"event": "pipeline_stage", "stage": "worker5", "status": "done"})
 
-            # ── Worker 5 (with progress) ─────────────────────────────────
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker5', 'status': 'processing'})}\n\n"
+                emit({"event": "pipeline_stage", "stage": "worker6", "status": "processing"})
+                w6 = worker6_section_labeler.run(w5)
+                emit({"event": "pipeline_stage", "stage": "worker6", "status": "done"})
 
-            # We need to yield inside the generator, so we use a list to collect
-            chunk_events = []
-            def stream_progress(event_data):
-                chunk_events.append(event_data)
+                emit({"event": "pipeline_stage", "stage": "worker7", "status": "processing"})
 
-            w5 = worker5_progress_tracker.run(w4, progress_callback=stream_progress)
+                def link_progress(done, total):
+                    emit({"event": "link_progress", "done": done, "total": total})
 
-            # Yield all collected chunk progress events
-            for evt in chunk_events:
-                yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+                w7 = worker7_filter.run(w6, progress=link_progress)
+                emit({"event": "pipeline_stage", "stage": "worker7", "status": "done"})
 
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker5', 'status': 'done'})}\n\n"
+                if w7.get("linker_used"):
+                    emit({"event": "pipeline_stage", "stage": "worker2", "status": "done", "skipped": True})
+                    emit({"event": "pipeline_stage", "stage": "worker3", "status": "processing"})
+                    w3 = worker3_gemini_ner.run_adjudication(w7)
+                    emit({"event": "pipeline_stage", "stage": "worker3", "status": "done"})
+                    output = _build_output(w7, w3)
+                else:
+                    emit({"event": "pipeline_stage", "stage": "worker2", "status": "processing"})
+                    w2 = worker2_timeline.run(w7)
+                    emit({"event": "pipeline_stage", "stage": "worker2", "status": "done"})
+                    emit({"event": "pipeline_stage", "stage": "worker3", "status": "processing"})
+                    w3 = worker3_gemini_ner.run(w6, w2)
+                    emit({"event": "pipeline_stage", "stage": "worker3", "status": "done"})
+                    output = _build_output(w6, w3)
 
-            # ── Worker 6 ─────────────────────────────────────────────────
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker6', 'status': 'processing'})}\n\n"
-            w6 = worker6_section_labeler.run(w5)
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker6', 'status': 'done'})}\n\n"
+                patient_name = "Unknown Patient"
+                for s in w6.get("sections", []):
+                    content = s.get("content", "")
+                    match = re.search(r"patient(?:\s*name)?[:\s]+([A-Z][a-z]+ [A-Z][a-z]+)", content, re.IGNORECASE)
+                    if match:
+                        patient_name = match.group(1).strip()
+                        break
 
-            # ── Worker 2 ─────────────────────────────────────────────────
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker2', 'status': 'processing'})}\n\n"
-            w2 = worker2_timeline.run(w6)
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker2', 'status': 'done'})}\n\n"
+                patient_id = str(uuid.uuid4())
+                output["patient_id"] = patient_id
+                output["patient_name"] = patient_name
+                output["processed_at"] = datetime.now(timezone.utc).isoformat()
 
-            # ── Worker 3 ─────────────────────────────────────────────────
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker3', 'status': 'processing'})}\n\n"
-            w3 = worker3_gemini_ner.run(w6, w2)
-            yield f"data: {json.dumps({'event': 'pipeline_stage', 'stage': 'worker3', 'status': 'done'})}\n\n"
+                with open(HISTORY_DIR / f"{patient_id}.json", "w", encoding="utf-8") as f:
+                    json.dump(output, f, indent=2, ensure_ascii=False)
 
-            # ── Build output ─────────────────────────────────────────────
-            output = _build_output(w6, w3)
+                emit({"event": "complete", "data": output})
+            except Exception as e:
+                print(f"[Error] Pipeline failed: {e}")
+                emit({"event": "error", "message": str(e)})
+            finally:
+                events.put(SENTINEL)
 
-            patient_name = "Unknown Patient"
-            for s in w6.get("sections", []):
-                content = s.get("content", "")
-                match = re.search(r"patient(?:\s*name)?[:\s]+([A-Z][a-z]+ [A-Z][a-z]+)", content, re.IGNORECASE)
-                if match:
-                    patient_name = match.group(1).strip()
-                    break
+        threading.Thread(target=pipeline, daemon=True).start()
 
-            patient_id = str(uuid.uuid4())
-            output["patient_id"] = patient_id
-            output["patient_name"] = patient_name
-            output["processed_at"] = datetime.now(timezone.utc).isoformat()
-
-            filepath = HISTORY_DIR / f"{patient_id}.json"
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(output, f, indent=2, ensure_ascii=False)
-
-            # Final complete event with the full payload
-            yield f"data: {json.dumps({'event': 'complete', 'data': output}, ensure_ascii=False)}\n\n"
-
-        except Exception as e:
-            print(f"[Error] Pipeline failed: {e}")
-            yield f"data: {json.dumps({'event': 'error', 'message': str(e)})}\n\n"
+        while True:
+            try:
+                ev = events.get(timeout=15)
+            except queue.Empty:
+                yield ": heartbeat\n\n"   # SSE comment — keeps the connection warm
+                continue
+            if ev is SENTINEL:
+                break
+            yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
 
     return Response(
         generate(),
@@ -310,9 +337,64 @@ def _build_output(w6: dict, w3: dict) -> dict:
 
     # Build keyword lookup from timeline
     keywords = {}
+    is_gemini_available = w3.get("ner_summary", {}).get("gemini_available", False)
+    linker_used = w6.get("linker_used", False)
+    filtered_timeline = []
+    concepts_total = len(timeline_entries)
+
+    # ── Precision filter + cap (linker mode) ─────────────────────────────────
+    # Large records (e.g. a 1,600-page summary) link to thousands of concepts and
+    # freeze the D3 keyword tree. Reduce to a precise, bounded set BEFORE shipping
+    # to the browser: min link score, frequency floor, and a per-category cap by
+    # (count desc, score desc). All env-tunable.
+    if linker_used:
+        keep_score = float(os.getenv("KEYWORD_MIN_SCORE", "0.85"))
+        # Frequency floor is adaptive: singletons are noise on a big record but
+        # the whole signal on a short note. Only enforce count>=2 once the doc
+        # produced more concepts than this threshold.
+        large_doc = concepts_total > int(os.getenv("KEYWORD_LARGE_DOC", "150"))
+        min_count = int(os.getenv("KEYWORD_MIN_COUNT", "2")) if large_doc else 1
+        cap_default = int(os.getenv("KEYWORD_CAP", "40"))
+        caps = {
+            "diagnosis": int(os.getenv("KEYWORD_CAP_DIAGNOSIS", "60")),
+            "medication": int(os.getenv("KEYWORD_CAP_MEDICATION", str(cap_default))),
+            "procedure": int(os.getenv("KEYWORD_CAP_PROCEDURE", str(cap_default))),
+            "biomarker": int(os.getenv("KEYWORD_CAP_BIOMARKER", "30")),
+        }
+
+        survivors: dict[str, list] = {}
+        for e in timeline_entries:
+            cat = e.get("category", "other")
+            if cat in ("other", "demographic"):
+                continue
+            if (e.get("link_score") or 0) < keep_score:
+                continue
+            # Frequency floor on asserted mentions; always keep negated-only
+            # (count 0) concepts that survived, since they're clinically notable.
+            if e.get("count", 0) < min_count and e.get("negated_count", 0) == 0:
+                continue
+            survivors.setdefault(cat, []).append(e)
+
+        reduced = []
+        for cat, items in survivors.items():
+            items.sort(key=lambda x: (x.get("count", 0), x.get("link_score") or 0), reverse=True)
+            reduced.extend(items[: caps.get(cat, cap_default)])
+        timeline_entries = reduced
+
     for entry in timeline_entries:
+        cat = entry.get("category", "other")
+
+        # Drop non-clinical/meta buckets. In linker mode "other" means the span
+        # linked but mapped to no clinical category (and adjudication, if any, has
+        # already run) — so it's noise regardless of Gemini. In legacy mode we
+        # only trust this filter when Gemini classified the terms.
+        if (linker_used or is_gemini_available) and cat in ("other", "demographic"):
+            continue
+
+        filtered_timeline.append(entry)
+
         keywords[entry["term"]] = {
-            "category": entry.get("category", "other"),
+            "category": cat,
             "status": entry.get("status", "unknown"),
             "ner_confidence": entry.get("ner_confidence", "unreviewed"),
             "count": entry["count"],
@@ -321,6 +403,12 @@ def _build_output(w6: dict, w3: dict) -> dict:
             "occurrences": entry["occurrences"],
             "recurrence_gap": entry["recurrence_gap"],
             "sections_present": entry["sections_present"],
+            # Concept-keyed extras (present only when the linker ran)
+            "cui": entry.get("cui"),
+            "aliases": entry.get("aliases", []),
+            "semantic_types": entry.get("semantic_types", []),
+            "negated_count": entry.get("negated_count", 0),
+            "link_score": entry.get("link_score"),
         }
 
     # Annotate sections with their keyword lists
@@ -340,11 +428,14 @@ def _build_output(w6: dict, w3: dict) -> dict:
             "page_count": w6["page_count"],
             "section_count": len(sections),
             "unique_terms": len(keywords),
+            "concepts_total": concepts_total,
+            "concepts_shown": len(keywords),
+            "linker_used": linker_used,
             "ner_summary": w3["ner_summary"],
         },
         "sections": sections,
         "keywords": keywords,
-        "timeline": w3["timeline"],
+        "timeline": filtered_timeline,
         "section_outline": w6.get("section_outline", []),
     }
 

@@ -42,7 +42,7 @@ _DOB_RE = re.compile(
     re.IGNORECASE,
 )
 _NAME_RE = re.compile(
-    r"\b(?:Patient(?:\s+Name)?|Name)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})",
+    r"\b(?:Patient(?:\s+Name)?|Name)[:\s]+([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,3})",
     re.IGNORECASE,
 )
 _GENDER_RE = re.compile(

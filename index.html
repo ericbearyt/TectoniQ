@@ -9,26 +9,24 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <!-- D3.js for visual interactive collapsible tree map -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       SIDEBAR
+       TOP NAV BAR
   ════════════════════════════════════════════════════════════════════ -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
+  <header class="top-nav" id="top-nav">
+    <div class="nav-logo">
       <div class="logo-mark">T</div>
       <span class="logo-text">TectoniQ</span>
     </div>
-
-    <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" id="nav-upload" data-panel="panel-upload">
-        <span class="nav-icon">⬆</span>
-        <span>Upload</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-history" data-panel="panel-history">
-        <span class="nav-icon">⏱</span>
-        <span>History</span>
+    
+    <nav class="nav-links">
+      <a href="#" class="nav-item active" id="nav-upload" data-panel="panel-file-manager">
+        <span class="nav-icon">📁</span>
+        <span>File Manager</span>
       </a>
       <a href="#" class="nav-item" id="nav-timeline" data-panel="panel-timeline">
         <span class="nav-icon">◈</span>
@@ -36,35 +34,24 @@
       </a>
       <a href="#" class="nav-item" id="nav-keywords" data-panel="panel-keywords">
         <span class="nav-icon">◉</span>
-        <span>Keywords</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-export" data-panel="panel-export">
-        <span class="nav-icon">↓</span>
-        <span>Export</span>
+        <span>Keyword Map</span>
       </a>
     </nav>
 
-    <div class="sidebar-patient-card" id="patient-card" style="display:none">
-      <div class="patient-card-label">PATIENT</div>
-      <div class="patient-name" id="sidebar-patient-name">—</div>
-      <div class="patient-meta" id="sidebar-patient-meta">—</div>
-      <div class="patient-badge" id="sidebar-patient-badge">PENDING</div>
-    </div>
-
-    <div class="sidebar-footer">
+    <div class="nav-footer">
       <div class="backend-status" id="backend-status">
         <span class="status-dot" id="status-dot"></span>
         <span id="status-label">Connecting…</span>
       </div>
     </div>
-  </aside>
+  </header>
 
   <!-- ═══════════════════════════════════════════════════════════════
        MAIN CONTENT
   ════════════════════════════════════════════════════════════════════ -->
   <main class="main" id="main-content">
 
-    <!-- TOP BANNER -->
+    <!-- TOP STATS BANNER -->
     <header class="top-banner" id="top-banner">
       <div class="banner-left">
         <h1 class="banner-title">Clinical Data Timeline Processor</h1>
@@ -91,70 +78,109 @@
     </header>
 
     <!-- ─────────────────────────────────────────────────────────────
-         PANEL: UPLOAD
+         PANEL: FILE MANAGER (UPLOAD + HISTORY + EXPORT)
     ─────────────────────────────────────────────────────────────── -->
-    <section class="panel active" id="panel-upload">
-      <div class="upload-area" id="upload-area">
-        <div class="upload-icon">⬆</div>
-        <h2 class="upload-title">Drop your PDF here</h2>
-        <p class="upload-sub">or click to browse — clinical documents, discharge summaries, progress notes</p>
-        <input type="file" id="file-input" accept=".pdf" hidden />
-        <button class="btn btn-primary" id="browse-btn">Browse File</button>
+    <section class="panel active" id="panel-file-manager">
+      <div class="file-manager-layout">
+        <div class="file-manager-grid">
+          <!-- Card 1: Upload & Ingestion -->
+          <div class="fm-card upload-section">
+            <div class="card-header-fm">
+              <h3 class="card-title">Upload & Ingestion</h3>
+              <p class="card-desc">Ingest clinical documents (PDF) to extract structured timelines</p>
+            </div>
+            
+            <div class="upload-area" id="upload-area">
+              <div class="upload-icon">⬆</div>
+              <h2 class="upload-title">Drop your PDF here</h2>
+              <p class="upload-sub">or click to browse — clinical documents, discharge summaries, progress notes</p>
+              <input type="file" id="file-input" accept=".pdf" hidden />
+              <button class="btn btn-primary" id="browse-btn">Browse File</button>
 
-        <div class="upload-progress" id="upload-progress" style="display:none">
-          <div class="progress-bar-wrap">
-            <div class="progress-bar" id="progress-bar"></div>
+              <div class="upload-progress" id="upload-progress" style="display:none">
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar" id="progress-bar"></div>
+                 </div>
+                <div class="progress-steps" id="progress-steps">
+                  <div class="progress-step" id="step-w4">
+                    <span class="step-dot pending"></span>Worker 4 — Chunk Splitter
+                  </div>
+                  <div class="progress-step" id="step-w5">
+                    <span class="step-dot pending"></span>Worker 5 — Progress Tracker
+                  </div>
+                  <div class="progress-step" id="step-w6">
+                    <span class="step-dot pending"></span>Worker 6 — Section Labeler
+                  </div>
+                  <div class="progress-step" id="step-w2">
+                    <span class="step-dot pending"></span>Worker 2 — Timeline Mapping
+                  </div>
+                  <div class="progress-step" id="step-w3">
+                    <span class="step-dot pending"></span>Worker 3 — Gemini NER
+                  </div>
+                </div>
+                <div class="chunk-progress" id="chunk-progress" style="display:none">
+                  <div class="chunk-progress-label" id="chunk-progress-label">Processing chunks…</div>
+                  <div class="chunk-bar-wrap" id="chunk-bar-wrap"></div>
+                  <div class="chunk-detail" id="chunk-detail"></div>
+                </div>
+              </div>
+              <div class="upload-error" id="upload-error" style="display:none"></div>
+            </div>
+
+            <div class="demo-row">
+              <span class="demo-label">No PDF? Try the demo fixture:</span>
+              <button class="btn btn-ghost" id="load-demo-btn">Load Demo Patient</button>
+            </div>
           </div>
-          <div class="progress-steps" id="progress-steps">
-            <div class="progress-step" id="step-w4">
-              <span class="step-dot pending"></span>Worker 4 — Chunk Splitter
+
+          <!-- Card 2: Patient History Database -->
+          <div class="fm-card history-section">
+            <div class="card-header-fm">
+              <h3 class="card-title">Patient Database</h3>
+              <p class="card-desc">Select a previously processed patient profile</p>
+              <input type="search" class="keyword-search" id="history-search" placeholder="Filter patient records..." />
             </div>
-            <div class="progress-step" id="step-w5">
-              <span class="step-dot pending"></span>Worker 5 — Progress Tracker
+            
+            <div class="history-container" id="history-container">
+              <div class="empty-state" id="history-empty-state">No patient histories found. Process a PDF to begin.</div>
+              <div class="history-grid" id="history-grid" style="display:none"></div>
             </div>
-            <div class="progress-step" id="step-w6">
-              <span class="step-dot pending"></span>Worker 6 — Section Labeler
-            </div>
-            <div class="progress-step" id="step-w2">
-              <span class="step-dot pending"></span>Worker 2 — Timeline Mapping
-            </div>
-            <div class="progress-step" id="step-w3">
-              <span class="step-dot pending"></span>Worker 3 — Gemini NER
-            </div>
-          </div>
-          <div class="chunk-progress" id="chunk-progress" style="display:none">
-            <div class="chunk-progress-label" id="chunk-progress-label">Processing chunks…</div>
-            <div class="chunk-bar-wrap" id="chunk-bar-wrap">
-              <!-- Chunk segments are added dynamically -->
-            </div>
-            <div class="chunk-detail" id="chunk-detail"></div>
           </div>
         </div>
 
-        <div class="upload-error" id="upload-error" style="display:none"></div>
-      </div>
+        <!-- Card 3: Export Section (Visible when patient loaded) -->
+        <div class="fm-card export-section" id="fm-export-card" style="display:none; margin-top: 24px;">
+          <div class="card-header-fm">
+            <h3 class="card-title">Structured Export</h3>
+            <p class="card-desc">Download the structured document as JSON or XML</p>
+          </div>
 
-      <!-- Demo loader -->
-      <div class="demo-row">
-        <span class="demo-label">No PDF? Try the demo fixture:</span>
-        <button class="btn btn-ghost" id="load-demo-btn">Load Demo Patient</button>
-      </div>
-    </section>
+          <div class="export-card" id="export-card">
+            <div class="export-toggle-group">
+              <span class="export-toggle-label">Format</span>
+              <div class="toggle-switch" id="format-toggle" role="group" aria-label="Export format">
+                <button class="toggle-btn active" id="toggle-json" data-format="json">JSON</button>
+                <button class="toggle-btn" id="toggle-xml" data-format="xml">XML</button>
+              </div>
+            </div>
 
-    <!-- ─────────────────────────────────────────────────────────────
-         PANEL: HISTORY
-    ─────────────────────────────────────────────────────────────── -->
-    <section class="panel" id="panel-history">
-      <div class="panel-header">
-        <h2 class="panel-title">Patient History</h2>
-        <p class="panel-desc">Previously processed patients and clinical document timelines</p>
-        <input type="search" class="keyword-search" id="history-search" placeholder="Filter by patient name..." style="margin-top: 16px;" />
-      </div>
+            <div class="export-preview" id="export-preview">
+              <pre id="export-preview-code">Upload a document first.</pre>
+            </div>
 
-      <div class="history-container" id="history-container">
-        <div class="empty-state" id="history-empty-state">No patient histories found. Process a PDF to begin.</div>
-        <div class="history-grid" id="history-grid" style="display:none">
-          <!-- Dynamically populated via JS -->
+            <button class="btn btn-primary btn-lg" id="download-btn" disabled>
+              ↓ Download
+            </button>
+
+            <div class="export-meta" id="export-meta"></div>
+          </div>
+
+          <!-- Duplicate section alerts -->
+          <div class="alerts-section" id="alerts-section" style="display:none; margin-top: 24px;">
+            <h3 class="alerts-title">⚠ Duplicate Sections</h3>
+            <p class="alerts-desc">The following sections share a header and may contain redundant information.</p>
+            <div class="alerts-list" id="alerts-list"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -166,12 +192,18 @@
       <div class="panel-header">
         <h2 class="panel-title">Discovery Timeline</h2>
         <p class="panel-desc">Terms mapped to their first and recurring appearance across document sections</p>
-        <div class="legend">
-          <span class="legend-item"><span class="legend-dot diagnosis"></span>Diagnosis</span>
-          <span class="legend-item"><span class="legend-dot medication"></span>Medication</span>
-          <span class="legend-item"><span class="legend-dot procedure"></span>Procedure</span>
-          <span class="legend-item"><span class="legend-dot biomarker"></span>Biomarker</span>
-          <span class="legend-item"><span class="legend-dot other"></span>Other</span>
+        <div class="legend" id="timeline-legend">
+          <span class="legend-item" data-category="diagnosis"><span class="legend-dot diagnosis"></span>Diagnosis</span>
+          <span class="legend-item" data-category="medication"><span class="legend-dot medication"></span>Medication</span>
+          <span class="legend-item" data-category="procedure"><span class="legend-dot procedure"></span>Procedure</span>
+          <span class="legend-item" data-category="biomarker"><span class="legend-dot biomarker"></span>Biomarker</span>
+          <span class="legend-item" data-category="other"><span class="legend-dot other"></span>Other</span>
+        </div>
+        <div class="timeline-controls" style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+          <span class="control-label" style="font-size: 11px; color: var(--t-secondary); margin-right: 4px;">Sort by:</span>
+          <button class="btn btn-ghost btn-sm active" id="sort-first-seen" data-criteria="first-seen">First Seen</button>
+          <button class="btn btn-ghost btn-sm" id="sort-frequency" data-criteria="frequency">Frequency</button>
+          <button class="btn btn-ghost btn-sm" id="sort-alphabetical" data-criteria="alphabetical">Alphabetical</button>
         </div>
       </div>
       <div class="timeline-container" id="timeline-container">
@@ -184,53 +216,63 @@
     </section>
 
     <!-- ─────────────────────────────────────────────────────────────
-         PANEL: KEYWORDS
+         PANEL: KEYWORD MAP (Interactive Collapsible Tree Diagram)
     ─────────────────────────────────────────────────────────────── -->
-    <section class="panel" id="panel-keywords">
-      <div class="panel-header">
-        <h2 class="panel-title">Keyword Tree</h2>
-        <p class="panel-desc">Hierarchical view of clinical entities — expand sections to see terms</p>
-        <input type="search" class="keyword-search" id="keyword-search" placeholder="Filter keywords…" />
-      </div>
-      <div class="keyword-grid" id="keyword-grid">
-        <div class="empty-state">Upload a document to populate keywords</div>
-      </div>
-    </section>
-
-    <!-- ─────────────────────────────────────────────────────────────
-         PANEL: EXPORT
-    ─────────────────────────────────────────────────────────────── -->
-    <section class="panel" id="panel-export">
-      <div class="panel-header">
-        <h2 class="panel-title">Export</h2>
-        <p class="panel-desc">Download the structured document as JSON or XML</p>
-      </div>
-
-      <div class="export-card" id="export-card">
-        <div class="export-toggle-group">
-          <span class="export-toggle-label">Format</span>
-          <div class="toggle-switch" id="format-toggle" role="group" aria-label="Export format">
-            <button class="toggle-btn active" id="toggle-json" data-format="json">JSON</button>
-            <button class="toggle-btn" id="toggle-xml" data-format="xml">XML</button>
+    <section class="panel flex-panel" id="panel-keywords">
+      <div class="keyword-map-layout" id="keyword-map-layout">
+        <!-- Left: Interactive Mindmap visualizer -->
+        <div class="keyword-map-visualizer">
+          <div class="keyword-map-header" id="keyword-map-header">
+            <button class="keyword-header-close" id="keyword-header-close" aria-label="Hide description banner" title="Hide description">✕</button>
+            <h2 class="panel-title">Keyword Map</h2>
+            <p class="panel-desc">Interactive clinical concept mindmap. Expand categories on the map or click leaves to load instances.</p>
+            <div class="keyword-map-controls">
+              <div class="kw-search" id="kw-search">
+                <button class="kw-search-toggle" id="kw-search-toggle" aria-label="Search terms in map" aria-expanded="false" title="Search terms">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                </button>
+                <input type="search" class="keyword-search kw-search-input" id="keyword-tree-search" placeholder="Filter terms in map..." />
+              </div>
+              <button class="btn btn-ghost" id="btn-reset-tree">Reset Zoom</button>
+            </div>
+          </div>
+          <!-- Tree SVG wrapper -->
+          <div id="keyword-tree-svg-wrap">
+            <div class="empty-state" style="height: 100%; border: none;">Upload a patient document to render the keyword map</div>
           </div>
         </div>
 
-        <div class="export-preview" id="export-preview">
-          <pre id="export-preview-code">Upload a document first.</pre>
+        <!-- Right: Demographic & Keyword Instance Detail sidebar -->
+        <div class="keyword-map-detail-panel" id="keyword-map-detail">
+          <!-- Top: Patient demographics mini-card -->
+          <div class="detail-patient-card-wrapper" id="patient-card" style="display:none">
+            <div class="detail-patient-avatar">PT</div>
+            <div class="detail-patient-info">
+              <h4 class="detail-patient-name" id="sidebar-patient-name">Patient</h4>
+              <p class="detail-patient-meta" id="sidebar-patient-meta">Female · DOB 1993-08-18 · 76 encounters</p>
+            </div>
+            <div class="detail-patient-conditions" id="detail-patient-conditions">
+              <!-- Auto-populated with prominent diagnosis badge if available -->
+            </div>
+          </div>
+
+          <!-- Bottom: Adaptable instances display -->
+          <div class="keyword-instances-container" id="keyword-instances-container">
+            <div class="detail-panel-empty-state">
+              <div class="empty-icon">🗂</div>
+              <h4>No Node Selected</h4>
+              <p>Click any node or leaf box on the left map to explore patient instances, occurrences, and semantic correlations.</p>
+            </div>
+          </div>
         </div>
 
-        <button class="btn btn-primary btn-lg" id="download-btn" disabled>
-          ↓ Download
+        <!-- Semicircle tab that slides the Health Summary panel open/closed -->
+        <button class="health-toggle" id="health-toggle" aria-label="Toggle Health Summary" aria-expanded="true" title="Hide Health Summary">
+          <span class="health-toggle-chevron" aria-hidden="true">›</span>
         </button>
-
-        <div class="export-meta" id="export-meta"></div>
-      </div>
-
-      <!-- Duplicate section alerts -->
-      <div class="alerts-section" id="alerts-section" style="display:none">
-        <h3 class="alerts-title">⚠ Duplicate Sections</h3>
-        <p class="alerts-desc">The following sections share a header and may contain redundant information.</p>
-        <div class="alerts-list" id="alerts-list"></div>
       </div>
     </section>
 

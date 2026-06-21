@@ -57,9 +57,9 @@ SECTION_PATTERNS: list[str] = [
     r"MEDICATIONS?",
     r"PHYSICAL\s+EXAM(?:INATION)?",
     r"VITAL\s+SIGNS?|VITALS?",
-    r"LABORATORY\s+(?:RESULTS?|DATA)|LABS?",
+    r"LABORATORY(?:\s+(?:RESULTS?|DATA))?|LABS?",
     r"IMAGING|RADIOLOGY",
-    r"ASSESSMENT\s+(?:AND\s+PLAN)?",
+    r"ASSESSMENT(?:\s+AND\s+PLAN)?",
     r"PLAN",
     r"DIAGNOSIS|DIAGNOSES|IMPRESSION",
     r"PROCEDURES?",
@@ -111,6 +111,10 @@ def scan_document(path: str | Path, document_id: str) -> ScanResult:
         full_text, page_count, ocr_pages = _extract_pdf(path)
     elif suffix in {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp"}:
         full_text, page_count, ocr_pages = _extract_image(path)
+    elif suffix == ".txt":
+        full_text = path.read_text(encoding="utf-8")
+        page_count = 1
+        ocr_pages = []
     else:
         raise ValueError(f"Unsupported file type: {suffix}")
 
