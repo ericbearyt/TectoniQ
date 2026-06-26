@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BEAM Pipeline 3 — Interactive Architecture & Data Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Google Fonts: Inter & Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-orb"></div>
+        <div>
+          <h1>BEAM Pipeline 3</h1>
+          <p class="subtitle">Physics-Informed Simulation & Clinician Decision Console</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="theme-toggle" class="btn btn-secondary" aria-label="Toggle theme">
+          <span class="icon-sun">☀️</span>
+          <span class="icon-moon">🌙</span>
+        </button>
+        <div class="version-tag">v3.2.0-beta</div>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="main-nav">
+      <button class="nav-tab active" data-tab="arch-dictionary">
+        <span class="tab-icon">📖</span> Architecture & Data Dictionary
+      </button>
+      <button class="nav-tab" data-tab="sandbox">
+        <span class="tab-icon">⚡</span> Patient Simulation Sandbox
+      </button>
+      <button class="nav-tab" data-tab="dense-grid">
+        <span class="tab-icon">📊</span> Compact Variable Matrix
+      </button>
+      <button class="nav-tab" data-tab="protocol">
+        <span class="tab-icon">🗓️</span> Treatment Protocol
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      
+      <!-- TAB 1: ARCHITECTURE & DICTIONARY -->
+      <section id="tab-arch-dictionary" class="tab-panel active">
+        <!-- Interactive Architecture Diagram -->
+        <div class="card arch-card">
+          <div class="card-header">
+            <div>
+              <h3>Interactive Pipeline Data Flow</h3>
+              <p class="card-subtitle">Click on any Stage node to filter the data dictionary below and explore variables in detail.</p>
+            </div>
+            <div class="badge-legend">
+              <span class="dot-legend text-crit"><span class="dot red"></span> Critical Constraint</span>
+              <span class="dot-legend text-imp"><span class="dot amber"></span> Risk Amplifier</span>
+              <span class="dot-legend text-key"><span class="dot blue"></span> Key Model Feature</span>
+            </div>
+          </div>
+          <div class="card-body arch-svg-container" style="justify-content: flex-start; overflow-x: auto;">
+            <div class="flow" id="interactive-flow-svg">
+
+              <!-- ══ STAGE 1 ══ -->
+              <div class="stage s1 svg-stage" data-stage="0">
+                <div class="stage-header">
+                  <div class="stage-num">Stage 1</div>
+                  <div class="stage-title">Patient Input Layer</div>
+                  <span class="var-count">14 variables</span>
+                </div>
+                <div class="stage-body">
+                  <div class="section-block">
+                    <div class="section-title">Demographics</div>
+                    <div class="section-items">
+                      <div class="item">Age at ASCT</div>
+                      <div class="item">Body Surface Area (BSA)</div>
+                      <div class="item">Weight</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Organ Reserves</div>
+                    <div class="section-items">
+                      <div class="item critical">LVEF ≥ 45% (cardiac)</div>
+                      <div class="item critical">DLCO ≥ 50% (pulmonary)</div>
+                      <div class="item critical">CrCl ≥ 40 mL/min (renal)</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Eligibility Scores</div>
+                    <div class="section-items">
+                      <div class="item critical">ECOG ≤ 2</div>
+                      <div class="item">HCT-CI score</div>
+                      <div class="item">Deauville (PET response)</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Treatment History</div>
+                    <div class="section-items">
+                      <div class="item">Prior chemo lines</div>
+                      <div class="item">Alkylator / TopII Σ dose</div>
+                      <div class="item">Anthracycline exposure</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Genomics (NGS)</div>
+                    <div class="section-items">
+                      <div class="item">TP53 CHIP VAF</div>
+                      <div class="item">PPM1D CHIP VAF</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Transplant Params</div>
+                    <div class="section-items">
+                      <div class="item critical">CD34+ yield ≥ 2 ×10⁶/kg</div>
+                      <div class="item critical">No active infection</div>
+                      <div class="item">Days since last salvage</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Arrow 1→2 ── -->
+              <div class="connector">
+                <div class="arrow-label">BSA · organ<br>baselines<br>CHIP VAF</div>
+                <div class="arrow-line"></div>
+              </div>
+
+              <!-- ══ STAGE 2 ══ -->
+              <div class="stage s2 svg-stage" data-stage="1">
+                <div class="stage-header">
+                  <div class="stage-num">Stage 2</div>
+                  <div class="stage-title">PhysiPKPD Drug Sim</div>
+                  <span class="var-count">9 variables</span>
+                </div>
+                <div class="stage-body">
+                  <div class="section-block">
+                    <div class="section-title">BCNU (Carmustine)</div>
+                    <div class="section-items">
+                      <div class="item">2-compartment ODE PK</div>
+                      <div class="item">t½: ~22 min / ~2 h</div>
+                      <div class="item output">Lung damage = AUC × DLCO⁻¹</div>
+                      <div class="item output">CNS penetration signal</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Etoposide</div>
+                    <div class="section-items">
+                      <div class="item">1-compartment, hepatic CL</div>
+                      <div class="item output">TopII inhibition ∫(conc · dt)</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Ara-C (Cytarabine)</div>
+                    <div class="section-items">
+                      <div class="item">2-compartment, deamination</div>
+                      <div class="item output">BBB CNS penetration signal</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Melphalan</div>
+                    <div class="section-items">
+                      <div class="item">CrCl-adjusted PK, t½ ~1.5 h</div>
+                      <div class="item output">Renal stress = dose / CrCl</div>
+                      <div class="item critical">24h clearance flag (safety)</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Aggregated Outputs</div>
+                    <div class="section-items">
+                      <div class="item output">Organ damage index ×6</div>
+                      <div class="item output">Predicted ANC / Plt nadir</div>
+                      <div class="item output">Conditioning nadir (ANC)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Arrow 2→3 ── -->
+              <div class="connector">
+                <div class="arrow-label">damage<br>signals<br>×6 organs</div>
+                <div class="arrow-line"></div>
+              </div>
+
+              <!-- ══ STAGE 3 ══ -->
+              <div class="stage s3 svg-stage" data-stage="2">
+                <div class="stage-header">
+                  <div class="stage-num">Stage 3</div>
+                  <div class="stage-title">PhysiCell Bone Marrow</div>
+                  <span class="var-count">7 variables</span>
+                </div>
+                <div class="stage-body">
+                  <div class="section-block">
+                    <div class="section-title">Marrow Environment</div>
+                    <div class="section-items">
+                      <div class="item">3D spatial grid</div>
+                      <div class="item">Vascular niche capacity</div>
+                      <div class="item">Cell death = f(damage signal)</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">CD34+ Stem Cell Dynamics</div>
+                    <div class="section-items">
+                      <div class="item">Monte Carlo random walk</div>
+                      <div class="item">Vascular niche competition</div>
+                      <div class="item">CD34+ infused on Day 0</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">CHIP Clone Expansion</div>
+                    <div class="section-items">
+                      <div class="item">TP53 / PPM1D fitness boost</div>
+                      <div class="item">Selective survival under BEAM</div>
+                      <div class="item output">CHIP expansion rate / month</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Primary Outputs</div>
+                    <div class="section-items">
+                      <div class="item output critical">P(engraftment success)</div>
+                      <div class="item output">CBC curve Day 0 → +30</div>
+                      <div class="item output">Days to neutrophil engraft</div>
+                      <div class="item output">Normal : CHIP ratio @ D+30</div>
+                      <div class="item output">Vascular niche occupancy %</div>
+                      <div class="item critical">Engraftment failure flag</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Arrow 3→4 ── -->
+              <div class="connector">
+                <div class="arrow-label">~24 ML<br>features<br>extracted</div>
+                <div class="arrow-line"></div>
+              </div>
+
+              <!-- ══ STAGE 4 ══ -->
+              <div class="stage s4 svg-stage" data-stage="3">
+                <div class="stage-header">
+                  <div class="stage-num">Stage 4</div>
+                  <div class="stage-title">ML Classification Layer</div>
+                  <span class="var-count">8 variables</span>
+                </div>
+                <div class="stage-body">
+                  <div class="section-block">
+                    <div class="section-title">Feature Extraction</div>
+                    <div class="section-items">
+                      <div class="item">ANC nadir value &amp; timing</div>
+                      <div class="item">Neutropenic window duration</div>
+                      <div class="item">ANC recovery slope</div>
+                      <div class="item">Platelet nadir &amp; slope</div>
+                      <div class="item">Organ damage composite</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Head 1 — Eligibility</div>
+                    <div class="section-items">
+                      <div class="item">XGBoost binary classifier</div>
+                      <div class="item output">P̂ ≥ 0.70 → GO</div>
+                      <div class="item output">0.50 ≤ P̂ &lt; 0.70 → HOLD</div>
+                      <div class="item output">P̂ &lt; 0.50 → EXCLUDE</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Head 2 — Organ Toxicity</div>
+                    <div class="section-items">
+                      <div class="item">Multi-label XGBoost</div>
+                      <div class="item output">6 organs → LOW/MOD/HIGH</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Explainability &amp; Survival</div>
+                    <div class="section-items">
+                      <div class="item">SHAP feature attributions</div>
+                      <div class="item output">SHAP waterfall plot</div>
+                      <div class="item output">15-yr Cox PH survival model</div>
+                      <div class="item output">t-MDS/AML hazard curve</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Arrow 4→5 ── -->
+              <div class="connector">
+                <div class="arrow-label">decision<br>+ SHAP<br>scores</div>
+                <div class="arrow-line"></div>
+              </div>
+
+              <!-- ══ STAGE 5 ══ -->
+              <div class="stage s5 svg-stage" data-stage="4">
+                <div class="stage-header">
+                  <div class="stage-num">Stage 5</div>
+                  <div class="stage-title">Clinical Output</div>
+                  <span class="var-count">6 variables</span>
+                </div>
+                <div class="stage-body">
+                  <div class="section-block">
+                    <div class="section-title">Primary Verdict</div>
+                    <div class="section-items">
+                      <div class="item output">ML score + safety rules</div>
+                      <div class="item">MDT review if EXCLUDE</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Clinical Visualizations</div>
+                    <div class="section-items">
+                      <div class="item output">CBC trajectory D0→+30</div>
+                      <div class="item output">6-organ risk heatmap</div>
+                      <div class="item output">SHAP waterfall dashboard</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">15-Year Late Effects</div>
+                    <div class="section-items">
+                      <div class="item output">GFR decline trajectory</div>
+                      <div class="item output">t-MDS/AML hazard projection</div>
+                      <div class="item output">Pulmonary &amp; cardiac tracks</div>
+                    </div>
+                  </div>
+                  <div class="section-block">
+                    <div class="section-title">Care Plan</div>
+                    <div class="section-items">
+                      <div class="item output">Specialist referral triggers</div>
+                      <div class="item output">Personalized surveillance</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="decision-chips">
+                  <span class="chip chip-go">GO</span>
+                  <span class="chip chip-hold">HOLD</span>
+                  <span class="chip chip-exclude">EXCLUDE</span>
+                </div>
+              </div>
+
+            </div>
+
+        </div>
+
+        <!-- Dictionary Filters & Grid -->
+        <div class="dictionary-section">
+          <div class="dictionary-header card-panel">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="dict-search" placeholder="Search variables by name, source, or description..." autocomplete="off">
+              <button id="clear-search" class="btn btn-icon" style="display:none;">✕</button>
+            </div>
+            
+            <div class="dict-filters">
+              <div class="stage-tabs-scroll">
+                <button class="stage-tab active" data-stage="all">All Stages (44)</button>
+                <button class="stage-tab" data-stage="0">Stage 1: Patient Inputs (14)</button>
+                <button class="stage-tab" data-stage="1">Stage 2: PhysiPKPD (9)</button>
+                <button class="stage-tab" data-stage="2">Stage 3: PhysiCell (7)</button>
+                <button class="stage-tab" data-stage="3">Stage 4: ML Layer (8)</button>
+                <button class="stage-tab" data-stage="4">Stage 5: Clinical Outputs (6)</button>
+              </div>
+
+              <div class="filter-group-tags">
+                <button class="tag-filter active" data-filter="all">All Types</button>
+                <button class="tag-filter" data-filter="crit"><span class="badge br">Critical Exclusion</span></button>
+                <button class="tag-filter" data-filter="imp"><span class="badge bo">Risk Amplifier</span></button>
+                <button class="tag-filter" data-filter="key"><span class="badge bc">Key Model Feature</span></button>
+                <button class="tag-filter" data-filter="neutral"><span class="badge bk">Standard Variable</span></button>
+              </div>
+            </div>
+
+            <div class="view-controls">
+              <div class="results-count"><span id="filtered-count">44</span> variables matching</div>
+              <div class="toggle-view-buttons">
+                <button class="btn btn-view active" id="btn-view-cards" aria-label="Card view">🪟 Cards</button>
+                <button class="btn btn-view" id="btn-view-table" aria-label="Table view">📋 Dense Table</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="dict-stage-intro" class="stage-intro-banner">
+            <!-- Dynamically populated stage description -->
+          </div>
+
+          <!-- Variable Container (Cards View) -->
+          <div id="dict-cards-grid" class="vgrid">
+            <!-- Dynamically populated cards -->
+          </div>
+
+          <!-- Variable Container (Table View - Hidden by default) -->
+          <div id="dict-table-container" class="table-container-wrap" style="display:none;">
+            <table class="dense-table">
+              <thead>
+                <tr>
+                  <th>Variable Name</th>
+                  <th>Stage</th>
+                  <th>Type & Range</th>
+                  <th>Source</th>
+                  <th>Clinical Significance</th>
+                </tr>
+              </thead>
+              <tbody id="dict-table-body">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: PATIENT SIMULATION SANDBOX -->
+      <section id="tab-sandbox" class="tab-panel">
+        <div class="sandbox-layout">
+          <!-- Sandbox Controls (Left Panel) -->
+          <aside class="sandbox-controls card">
+            <div class="card-header">
+              <h3>Patient Parameters</h3>
+              <button id="reset-sandbox" class="btn btn-secondary btn-sm">Reset to Baseline</button>
+            </div>
+            <div class="card-body controls-scroll-wrapper">
+              
+              <!-- Category: Demographics -->
+              <div class="control-group">
+                <div class="group-title">Demographics & Sizing</div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="age">Age at ASCT</span>
+                    <span class="slider-val" id="val-age">55 yrs</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-age" min="18" max="85" value="55" step="1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="bsa">Body Surface Area (BSA)</span>
+                    <span class="slider-val" id="val-bsa">1.85 m²</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-bsa" min="1.2" max="2.6" value="1.85" step="0.05">
+                </div>
+              </div>
+
+              <!-- Category: Organ Reserves -->
+              <div class="control-group">
+                <div class="group-title">Organ Reserves</div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name text-crit" data-var="lvef">LVEF % (Cardiac)</span>
+                    <span class="slider-val" id="val-lvef">55%</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-lvef" min="25" max="75" value="55" step="1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name text-crit" data-var="dlco">DLCO % predicted (Pulmonary)</span>
+                    <span class="slider-val" id="val-dlco">75%</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-dlco" min="20" max="110" value="75" step="1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name text-crit" data-var="crcl">Creatinine Clearance (CrCl)</span>
+                    <span class="slider-val" id="val-crcl">85 mL/min</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-crcl" min="15" max="150" value="85" step="1">
+                </div>
+              </div>
+
+              <!-- Category: Scores & History -->
+              <div class="control-group">
+                <div class="group-title">Scores & Prior Exposure</div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name text-crit" data-var="ecog">ECOG Score</span>
+                    <span class="slider-val" id="val-ecog">1</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-ecog" min="0" max="4" value="1" step="1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="hct_ci">HCT-CI Score</span>
+                    <span class="slider-val" id="val-hct_ci">2</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-hct_ci" min="0" max="10" value="2" step="1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="chemo_lines">Prior Chemotherapy Lines</span>
+                    <span class="slider-val" id="val-chemo_lines">2</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-chemo_lines" min="1" max="6" value="2" step="1">
+                </div>
+              </div>
+
+              <!-- Category: Genomics & Transplant -->
+              <div class="control-group">
+                <div class="group-title">Genomics & Transplant Parameters</div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name text-crit" data-var="cd34">CD34+ Cell Yield</span>
+                    <span class="slider-val" id="val-cd34">4.2 ×10⁶/kg</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-cd34" min="1.0" max="10.0" value="4.2" step="0.1">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="tp53">TP53 VAF (CHIP Mutant)</span>
+                    <span class="slider-val" id="val-tp53">0.0%</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-tp53" min="0.0" max="25.0" value="0.0" step="0.5">
+                </div>
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="ppm1d">PPM1D VAF (CHIP Mutant)</span>
+                    <span class="slider-val" id="val-ppm1d">0.0%</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-ppm1d" min="0.0" max="25.0" value="0.0" step="0.5">
+                </div>
+                
+                <div class="checkbox-row">
+                  <label class="control-checkbox-label" data-var="infection">
+                    <input type="checkbox" id="check-infection">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Active Infection Flag (Day -7)</span>
+                  </label>
+                </div>
+                
+                <div class="slider-row">
+                  <div class="slider-labels">
+                    <span class="slider-name" data-var="salvage_days">Days Since Last Salvage</span>
+                    <span class="slider-val" id="val-salvage_days">30 days</span>
+                  </div>
+                  <input type="range" class="param-slider" id="slider-salvage_days" min="7" max="90" value="30" step="1">
+                </div>
+              </div>
+
+            </div>
+          </aside>
+
+          <!-- Sandbox Visualizer Outputs (Right Panel) -->
+          <article class="sandbox-outputs">
+            <!-- Sandbox Header: Active Clinical Verdict -->
+            <div class="card verdict-card decision-go" id="verdict-banner">
+              <div class="verdict-header-wrap">
+                <div class="verdict-pill" id="verdict-badge">GO (BEAM ELIGIBLE)</div>
+                <div class="verdict-score">Probability of Engraftment: <strong id="verdict-engraft-prob">94.8%</strong></div>
+              </div>
+              <div class="verdict-explanation" id="verdict-rationale">
+                Patient is eligible for standard myeloablative BEAM conditioning. Organ reserves and performance score are within safe limits.
+              </div>
+            </div>
+
+            <!-- Sub-tabs for Simulation Outputs -->
+            <div class="output-tabs-container">
+              <div class="output-tabs">
+                <button class="out-tab active" data-out="out-pk">Stage 2: PK Concentration Curves</button>
+                <button class="out-tab" data-out="out-marrow">Stage 3: Spatial Bone Marrow Grid</button>
+                <button class="out-tab" data-out="out-shap">Stage 4: SHAP Explainability Waterfall</button>
+                <button class="out-tab" data-out="out-clinical">Stage 5: Clinical Prediction Board</button>
+              </div>
+            </div>
+
+            <div class="out-panel active" id="out-pk">
+              <div class="visualizer-grid-2">
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">BCNU (Carmustine) &amp; Etoposide PK</div>
+                  <div class="chart-container" id="chart-pk-bcnu-etop">
+                    <svg viewBox="0 0 400 220" id="svg-pk-1" class="sim-chart-svg"></svg>
+                  </div>
+                  <div class="chart-legend-center">
+                    <span class="legend-item"><span class="line-color" style="background:#ea580c;"></span> BCNU (Plasma)</span>
+                    <span class="legend-item"><span class="line-color" style="background:#f59e0b;"></span> Etoposide (Plasma)</span>
+                  </div>
+                </div>
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">Ara-C (Cytarabine) &amp; Melphalan PK</div>
+                  <div class="chart-container" id="chart-pk-arac-melp">
+                    <svg viewBox="0 0 400 220" id="svg-pk-2" class="sim-chart-svg"></svg>
+                  </div>
+                  <div class="chart-legend-center">
+                    <span class="legend-item"><span class="line-color" style="background:#3b82f6;"></span> Ara-C (Plasma)</span>
+                    <span class="legend-item"><span class="line-color" style="background:#10b981;"></span> Melphalan (Plasma)</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stage-metric-footer">
+                <div class="footer-metric-card">
+                  <div class="f-lbl">BCNU Lung Index</div>
+                  <div class="f-val" id="lbl-lung-index">0.24</div>
+                </div>
+                <div class="footer-metric-card">
+                  <div class="f-lbl">Etoposide TopII Score</div>
+                  <div class="f-val" id="lbl-top2-score">8.2</div>
+                </div>
+                <div class="footer-metric-card">
+                  <div class="f-lbl">Melphalan Renal Stress</div>
+                  <div class="f-val" id="lbl-renal-stress">1.1</div>
+                </div>
+                <div class="footer-metric-card">
+                  <div class="f-lbl">Melphalan 24h Clearance</div>
+                  <div class="f-val text-success" id="lbl-melp-clearance">PASSED</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spatial Niche Canvas Animation -->
+            <div class="out-panel" id="out-marrow">
+              <div class="canvas-panel-grid">
+                <div class="canvas-wrap-box">
+                  <div class="canvas-overlay-controls">
+                    <button id="btn-marrow-play" class="btn btn-secondary btn-sm">▶ Run Simulation</button>
+                    <button id="btn-marrow-reset" class="btn btn-secondary btn-sm">🔄 Reset Grid</button>
+                    <span class="sim-day-lbl">Day: <strong id="marrow-day-val">0</strong></span>
+                  </div>
+                  <canvas id="marrow-canvas" width="400" height="240"></canvas>
+                </div>
+                <div class="canvas-description-box">
+                  <h4>Spatial Niche Occupancy Simulation</h4>
+                  <p>Stochastic Monte Carlo agent model simulating CD34+ cell homing (blue) and clonal hematopoiesis expansion (purple/red) in bone marrow vascular niches (green outlines).</p>
+                  <ul class="sim-bullet-list">
+                    <li><strong>Vessel Boundary Niche Capacity</strong>: Set by the patient's baseline marrow space and vascular health.</li>
+                    <li><strong>Competitive Homing</strong>: normal CD34+ and CHIP clones compete for available niches.</li>
+                    <li><strong>Drug Impact</strong>: High chemotherapy exposure decreases cell survival, opening up niches for clonal selective expansion.</li>
+                  </ul>
+                  <div class="niche-stats">
+                    <div class="niche-stat-row"><span>Total Available Niches:</span> <strong id="val-total-niches">150</strong></div>
+                    <div class="niche-stat-row"><span>Occupied Niches:</span> <strong id="val-occupied-niches">0</strong></div>
+                    <div class="niche-stat-row"><span>Normal Cell Fraction:</span> <strong id="val-normal-cell-ratio">100%</strong></div>
+                    <div class="niche-stat-row"><span>CHIP Clone Fraction:</span> <strong id="val-chip-cell-ratio">0%</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SHAP Explainability -->
+            <div class="out-panel" id="out-shap">
+              <div class="visualizer-grid-2">
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">XGBoost Eligibility Head — SHAP Waterfall</div>
+                  <div class="chart-container" id="chart-shap-eligibility">
+                    <svg viewBox="0 0 400 240" id="svg-shap-elig" class="sim-chart-svg"></svg>
+                  </div>
+                  <div class="chart-note">Positive SHAP values push towards Eligibility (GO), negative push towards Exclusion (HOLD/EXCLUDE).</div>
+                </div>
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">6-Organ Toxicity Risk Head (Multi-label)</div>
+                  <div class="organ-heatmap-grid" id="organ-heatmap-elements">
+                    <!-- Dynamic rendering of organ risk blocks -->
+                    <div class="organ-block risk-low" data-organ="lung">
+                      <div class="organ-name">Lung</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                    <div class="organ-block risk-low" data-organ="renal">
+                      <div class="organ-name">Renal</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                    <div class="organ-block risk-low" data-organ="cardiac">
+                      <div class="organ-name">Cardiac</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                    <div class="organ-block risk-low" data-organ="cns">
+                      <div class="organ-name">CNS</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                    <div class="organ-block risk-low" data-organ="gonadal">
+                      <div class="organ-name">Gonadal</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                    <div class="organ-block risk-low" data-organ="hepatic">
+                      <div class="organ-name">Hepatic</div>
+                      <div class="organ-score">LOW RISK</div>
+                    </div>
+                  </div>
+                  <div class="chart-note">Risk thresholds are modeled based on baseline organ reserve and peak drug exposure.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stage 5 Clinical Predictions -->
+            <div class="out-panel" id="out-clinical">
+              <div class="visualizer-grid-2">
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">Simulated CBC Trajectory (Day 0 to +30)</div>
+                  <div class="chart-container" id="chart-cbc-trajectory">
+                    <svg viewBox="0 0 400 220" id="svg-cbc" class="sim-chart-svg"></svg>
+                  </div>
+                  <div class="chart-legend-center">
+                    <span class="legend-item"><span class="line-color" style="background:#10b981;"></span> ANC (x100 cells/µL)</span>
+                    <span class="legend-item"><span class="line-color" style="background:#f59e0b;"></span> Platelets (k/µL)</span>
+                  </div>
+                </div>
+                <div class="visualizer-subcard">
+                  <div class="subcard-header">15-Year Late Effects Projections</div>
+                  <div class="chart-container" id="chart-late-effects">
+                    <svg viewBox="0 0 400 220" id="svg-late" class="sim-chart-svg"></svg>
+                  </div>
+                  <div class="chart-legend-center">
+                    <span class="legend-item"><span class="line-color" style="background:#ef4444;"></span> Cum. t-MDS/AML Hazard %</span>
+                    <span class="legend-item"><span class="line-color" style="background:#3b82f6;"></span> Estimated GFR Decline %</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stage-metric-footer clinical-care-tips">
+                <div class="care-plan-item" id="care-neutropenia-window">
+                  <span class="care-icon">🛡️</span>
+                  <div>
+                    <strong>Predicted Neutropenia Nadir Window</strong>
+                    <p id="lbl-neutropenia-window">Days +6 to +13 (7 days duration)</p>
+                  </div>
+                </div>
+                <div class="care-plan-item" id="care-surveillance">
+                  <span class="care-icon">📋</span>
+                  <div>
+                    <strong>15-Year Surveillance Focus</strong>
+                    <p id="lbl-surveillance-focus">Routine monitoring. No immediate risk signals.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </article>
+        </div>
+      </section>
+
+      <!-- TAB 3: DENSE COMPACT GRID MATRIX -->
+      <section id="tab-dense-grid" class="tab-panel">
+        <div class="card dense-grid-card">
+          <div class="card-header">
+            <div>
+              <h3>Compact Variable Matrix Overview</h3>
+              <p class="card-subtitle">Detailed sorting, filtering, and cross-comparison of the entire BEAM Pipeline 3 dataset.</p>
+            </div>
+            <div class="grid-table-controls">
+              <button id="btn-export-csv" class="btn btn-secondary btn-sm">📥 Export CSV Data Dictionary</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="search-filter-compact-row">
+              <input type="text" id="compact-search" placeholder="Type name, stage, or source to filter..." class="compact-search-input">
+              <select id="compact-stage-filter" class="compact-select">
+                <option value="all">All Stages</option>
+                <option value="0">Stage 1: Patient Input</option>
+                <option value="1">Stage 2: PhysiPKPD</option>
+                <option value="2">Stage 3: PhysiCell</option>
+                <option value="3">Stage 4: ML Layer</option>
+                <option value="4">Stage 5: Clinical Output</option>
+              </select>
+              <select id="compact-type-filter" class="compact-select">
+                <option value="all">All Types</option>
+                <option value="crit">Critical Constraint</option>
+                <option value="imp">Risk Amplifier</option>
+                <option value="key">Key Model Feature</option>
+                <option value="neutral">Standard Variable</option>
+              </select>
+            </div>
+            
+            <div class="table-container-wrap">
+              <table class="dense-table matrix-table" id="matrix-table">
+                <thead>
+                  <tr>
+                    <th data-sort="name" class="sortable asc">Variable Name <span class="sort-icon">▲</span></th>
+                    <th data-sort="stage" class="sortable">Pipeline Stage <span class="sort-icon">↕</span></th>
+                    <th data-sort="type" class="sortable">Classification <span class="sort-icon">↕</span></th>
+                    <th>Data Type / Range</th>
+                    <th>Source System / Model</th>
+                    <th>Clinical Relevance (BEAM Conditioning)</th>
+                  </tr>
+                </thead>
+                <tbody id="compact-table-body">
+                  <!-- JS generated rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+      <!-- TAB 4: TREATMENT PROTOCOL TIMELINE -->
+      <section id="tab-protocol" class="tab-panel">
+
+        <div class="card protocol-card">
+          <div class="card-header">
+            <div>
+              <h3>BEAM Treatment Protocol Timeline</h3>
+              <p class="card-subtitle">Day −6 through Day +30. Click any day node for drugs, patient-specific CTCAE toxicity grades, decision branches, and printable order sets.</p>
+            </div>
+            <div class="protocol-sync-badge">
+              <span class="badge bc">⚡ Live — Synced with Sandbox</span>
+              <span class="protocol-sync-note">Toxicity grades update with patient parameters</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="timeline-rail-wrap">
+              <div class="timeline-rail" id="timeline-rail">
+                <!-- JS rendered nodes -->
+              </div>
+            </div>
+            <div class="timeline-detail-panel" id="timeline-detail-panel" style="display:none;">
+              <!-- JS rendered detail panel -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini-BEAM Alternative Pathway (shown when verdict is HOLD/EXCLUDE) -->
+        <div id="mini-beam-section" class="card mini-beam-card" style="display:none;">
+          <div class="card-header">
+            <div>
+              <h3>⚠️ Mini-BEAM Alternative Pathway</h3>
+              <p class="card-subtitle">Current verdict is HOLD or EXCLUDE. Reduced-intensity conditioning option below.</p>
+            </div>
+          </div>
+          <div class="card-body" id="mini-beam-body">
+            <!-- JS rendered -->
+          </div>
+        </div>
+
+      </section>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <p>&copy; 2026 TectoniQ Onco-Simulations. All rights reserved.</p>
+      </div>
+      <div class="footer-right">
+        <a href="#dictionary" id="link-goto-dict">Data Dictionary</a> &middot;
+        <a href="#sandbox" id="link-goto-sandbox">Simulation Sandbox</a> &middot;
+        <span class="text-muted">Physically-Consistent Cellular Automaton and Compartmental Pharmacokinetics</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Detail Popover / Modal Backdrop -->
+  <div class="modal-backdrop" id="detail-modal">
+    <div class="modal-card">
+      <header class="modal-header">
+        <h3 id="m-var-name">Variable Name</h3>
+        <button class="btn-close-modal" id="btn-close-modal">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="modal-meta-grid">
+          <div class="m-meta-item">
+            <span class="m-meta-lbl">Pipeline Stage</span>
+            <strong id="m-stage">Stage 1 · Patient Input</strong>
+          </div>
+          <div class="m-meta-item">
+            <span class="m-meta-lbl">Variable Type / Range</span>
+            <strong id="m-type-range">Continuous [0-100]</strong>
+          </div>
+          <div class="m-meta-item">
+            <span class="m-meta-lbl">Source System</span>
+            <strong id="m-source">EHR / Labs</strong>
+          </div>
+          <div class="m-meta-item" id="m-class-item">
+            <span class="m-meta-lbl">Clinical Classification</span>
+            <span class="badge" id="m-classification-badge">Critical</span>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4>Clinical Description</h4>
+          <p id="m-desc">Detailed explanation goes here.</p>
+        </div>
+
+        <div class="modal-section">
+          <h4>Relevance to BEAM Conditioning &amp; Toxicity</h4>
+          <p id="m-beam-relevance">Toxicity relevance detailed here.</p>
+        </div>
+
+        <div class="modal-section" id="m-equation-wrap">
+          <h4>Mathematical / Model Representation</h4>
+          <code class="m-code" id="m-equation">y = f(x)</code>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-action">Close Variable Details</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Link script file -->
+  <script src="app.js"></script>
+</body>
+</html>
